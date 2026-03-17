@@ -1,0 +1,13 @@
+{
+  "name": "agentmarket-bidder",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node agent.js",
+    "dev":   "node --watch agent.js"
+  },
+  "dependencies": {
+    "dotenv":  "^16.4.5",
+    "ethers":  "^6.11.1"
+  }
+}
