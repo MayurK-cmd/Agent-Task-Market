@@ -22,6 +22,17 @@ export function requireWalletAuth(req, res, next) {
     })
   }
 
+  // ── Test bypass (development only) ─────────────────────────────────────────
+  // Allows test.js to run without a real private key.
+  // NEVER active in production — NODE_ENV check is the guard.
+  if (
+    process.env.NODE_ENV !== 'production' &&
+    signature === 'test-bypass'
+  ) {
+    req.wallet = wallet.toLowerCase()
+    return next()
+  }
+
   if (!isSignatureTimely(message)) {
     return res.status(401).json({ error: 'Signature expired (> 5 minutes old)' })
   }
@@ -53,4 +64,3 @@ export function optionalWalletAuth(req, res, next) {
 }
 
 export default { requireWalletAuth, optionalWalletAuth }
-
