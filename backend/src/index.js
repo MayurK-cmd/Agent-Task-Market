@@ -26,19 +26,20 @@ app.use(cors({
 }))
 
 // ── Rate limiting ─────────────────────────────────────────────────────────────
+// Generous for local dev — frontend + 2 agents all hit from same IP.
+// Tighten in production via NODE_ENV check.
 const limiter = rateLimit({
-  windowMs: 60 * 1000,   // 1 minute
-  max: 120,              // 120 req/min per IP
+  windowMs: 60 * 1000,
+  max: process.env.NODE_ENV === 'production' ? 300 : 2000,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests, slow down' },
 })
 app.use(limiter)
 
-// Stricter limit on write endpoints
 const writeLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 20,
+  max: process.env.NODE_ENV === 'production' ? 60 : 500,
   message: { error: 'Too many write requests' },
 })
 

@@ -36,6 +36,8 @@ export const CONTRACT_ABI = [
   'function settleTask(uint256 taskId, string ipfsCid) external',
   'function disputeTask(uint256 taskId) external',
   'function getTask(uint256 taskId) external view returns (tuple(uint256 id, address poster, uint256 budget, uint256 deadline, uint256 minRepScore, uint8 status, uint256 winningBidId, string ipfsCid, string category, string title))',
+  'function getBid(uint256 bidId) external view returns (tuple(uint256 id, uint256 taskId, address bidder, uint256 amount, uint8 status, string message))',
+  'function getTaskBids(uint256 taskId) external view returns (uint256[])',
   'function taskCount() external view returns (uint256)',
   'function commissionBps() external view returns (uint256)',
   'event TaskPosted(uint256 indexed taskId, address indexed poster, uint256 budget, string category, uint256 deadline)',
