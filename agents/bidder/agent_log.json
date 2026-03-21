@@ -1,8 +1,11 @@
 {
   "agentName": "DataHunter-1",
   "agentId": "67",
+  "agentWallet": "0x242038B0D823bE4097aF6145984a492c5734d6f7",
   "network": "celo-sepolia",
+  "chainId": 11142220,
   "logVersion": "1.0",
+  "explorerBase": "https://sepolia.celoscan.io/tx/",
   "buildPeriod": {
     "start": "2026-03-17T13:28:38Z",
     "end": "2026-03-21T12:18:21Z"
@@ -10,25 +13,31 @@
   "executionSessions": [
     {
       "sessionId": "session-001",
-      "timestamp": "2026-03-17T14:00:00Z",
+      "timestamp": "2026-03-17T17:01:49Z",
       "phase": "bootstrap",
       "decisions": [
         {
           "step": 1,
-          "action": "deploy-contract",
-          "tool": "Hardhat + ethers.js",
-          "input": "TaskMarket.sol with 80/20 commission, ERC-8004 reputation gating, dispute resolution",
-          "output": "Contract deployed at 0xEe39002BF9783DB5dac224Df968D0e3c5CE39a2B on Celo Sepolia (chain 11142220)",
+          "action": "fund-agent-wallet",
+          "output": "Agent wallet funded with 0.3 CELO",
           "status": "success",
-          "txHash": "see Celo Sepolia Blockscout",
-          "notes": "Used Hardhat deploy script. ERC8004_IDENTITY_REGISTRY and ERC8004_REPUTATION_REGISTRY wired at deploy time."
+          "txHash": "0x15aee960b9ebc3ec06c0f2a9be421f995530c6b58a424dd3e0602a4e7913416c",
+          "explorerURL": "https://sepolia.celoscan.io/tx/0x15aee960b9ebc3ec06c0f2a9be421f995530c6b58a424dd3e0602a4e7913416c"
         },
         {
           "step": 2,
+          "action": "deploy-contract",
+          "tool": "Hardhat + ethers.js",
+          "output": "TaskMarket.sol deployed at 0xEe39002BF9783DB5dac224Df968D0e3c5CE39a2B",
+          "status": "success",
+          "contractAddress": "0xEe39002BF9783DB5dac224Df968D0e3c5CE39a2B",
+          "explorerURL": "https://celo-sepolia.blockscout.com/address/0xEe39002BF9783DB5dac224Df968D0e3c5CE39a2B"
+        },
+        {
+          "step": 3,
           "action": "register-erc8004-identity",
-          "tool": "ERC-8004 Identity Registry on Celo Sepolia",
-          "input": "Agent wallet 0x6FFa1e00509d8B625c2F061D7dB07893B37199BC",
-          "output": "Agent registered as index 67 on testnet.8004scan.io",
+          "tool": "ERC-8004 Identity + Reputation Registry",
+          "output": "Agent registered as index 67 on Celo Sepolia",
           "status": "success",
           "explorerURL": "https://testnet.8004scan.io/agents/celo-sepolia/67"
         }
@@ -36,185 +45,172 @@
     },
     {
       "sessionId": "session-002",
-      "timestamp": "2026-03-18T09:00:00Z",
-      "phase": "autonomous-poll-bid-execute",
-      "taskId": "task-0001",
+      "timestamp": "2026-03-19T15:08:21Z",
+      "phase": "first-autonomous-bid-and-settle",
       "decisions": [
         {
           "step": 1,
-          "action": "poll-marketplace",
-          "tool": "GET /tasks?status=open",
-          "input": "Poll every 5 minutes for open tasks",
-          "output": "Found 1 open task: data_collection, budget 0.5 CELO, deadline 2h, minRepScore 0",
-          "status": "success"
+          "action": "poll-marketplace + evaluate-fit",
+          "tool": "GET /tasks, internal specialty matcher",
+          "output": "Open task found matching data_collection specialty. Budget > MIN. Proceeding to bid.",
+          "status": "success",
+          "guardrail": "Deadline validated before bid submission"
         },
         {
           "step": 2,
-          "action": "evaluate-task-fit",
-          "tool": "internal specialty matcher",
-          "input": "Task category: data_collection. Agent specialties: data_collection, content_gen",
-          "output": "Match confirmed. Category in AGENT_SPECIALTIES. Budget 0.5 CELO > MIN_BUDGET_CUSD 0.1",
+          "action": "submit-on-chain-bid",
+          "tool": "ethers.js -> TaskMarket.sol.submitBid()",
+          "output": "Bid submitted with 10% discount on task budget",
           "status": "success",
-          "decision": "proceed to bid"
+          "txHash": "0x89b6da4eaf0dba21aef6a59796effc81581188df5f14a453799148cfdee36de8",
+          "explorerURL": "https://sepolia.celoscan.io/tx/0x89b6da4eaf0dba21aef6a59796effc81581188df5f14a453799148cfdee36de8"
         },
         {
           "step": 3,
-          "action": "submit-on-chain-bid",
-          "tool": "ethers.js -> TaskMarket.sol.submitBid()",
-          "input": "taskId=1, bidAmount=0.45 CELO (10% discount), pitch='DataHunter-1: DeFiLlama data specialist, ERC-8004 rep gated'",
-          "output": "Bid submitted on-chain. Bid ID confirmed in contract logs.",
+          "action": "execute-task",
+          "tool": "DeFiLlama API + Gemini 2.5 Flash + Pinata IPFS",
+          "output": "Celo TVL data fetched, report generated, uploaded to IPFS",
           "status": "success",
-          "guardrail": "Validated task deadline not expired before submitting bid"
+          "guardrail": "IPFS CID verified resolvable before submitting work"
         },
         {
           "step": 4,
-          "action": "wait-for-bid-acceptance",
-          "tool": "poll GET /bids/:taskId",
-          "input": "Poll every 5 minutes for bid status",
-          "output": "Bid accepted by task poster. Task status: InProgress",
-          "status": "success"
-        },
-        {
-          "step": 5,
-          "action": "execute-task",
-          "tool": "DeFiLlama API + Gemini 2.5 Flash",
-          "input": "Fetch Celo-specific TVL data from api.llama.fi/protocols, generate structured report",
-          "output": "Data collected: 3 Celo protocols, TVL figures, 7-day trend. Report generated via Gemini 2.5 Flash.",
+          "action": "receive-payment-settlement",
+          "tool": "TaskMarket.sol.settleTask() internal transfer",
+          "output": "Agent received 0.64 CELO (80% of escrow). 0.16 CELO to platform. Atomic on-chain.",
           "status": "success",
-          "apiCalls": [
-            {"api": "DeFiLlama", "endpoint": "api.llama.fi/protocols", "result": "success"},
-            {"api": "Gemini 2.5 Flash", "prompt": "Format Celo DeFi TVL report", "result": "success"}
-          ]
-        },
-        {
-          "step": 6,
-          "action": "upload-deliverable-to-ipfs",
-          "tool": "Pinata IPFS",
-          "input": "JSON report of Celo DeFi TVL data",
-          "output": "IPFS CID: Qm... (uploaded via Pinata). CID stored in backend for settlement.",
-          "status": "success",
-          "guardrail": "Verified CID resolves before submitting to contract"
-        },
-        {
-          "step": 7,
-          "action": "submit-work-via-x402",
-          "tool": "POST /verify (x402-gated endpoint)",
-          "input": "IPFS CID, task ID, agent wallet signature",
-          "output": "Deliverable accepted. CID visible in frontend IPFS viewer.",
-          "status": "success"
-        },
-        {
-          "step": 8,
-          "action": "await-payment-settlement",
-          "tool": "TaskMarket.sol.settleTask() (triggered by task poster via frontend)",
-          "input": "Task poster clicks confirm & release payment in UI, MetaMask signs tx",
-          "output": "Settlement tx confirmed. 0.36 CELO (80%) sent to agent wallet. 0.09 CELO (20%) to platform.",
-          "status": "success",
-          "notes": "Payment is atomic and on-chain. Backend never touches funds. Key design decision."
+          "txHash": "0x82823d247b0890050c0ac07a86ac9c05d42d9d70680e25f569fd0543fd6e1418",
+          "explorerURL": "https://sepolia.celoscan.io/tx/0x82823d247b0890050c0ac07a86ac9c05d42d9d70680e25f569fd0543fd6e1418",
+          "amountReceived": "0.64 CELO"
         }
       ]
     },
     {
       "sessionId": "session-003",
-      "timestamp": "2026-03-19T11:00:00Z",
-      "phase": "multi-agent-competition",
-      "notes": "Second agent DataScraper-2 introduced to demonstrate competitive bidding",
+      "timestamp": "2026-03-20T09:51:43Z",
+      "phase": "second-bid-and-settle",
       "decisions": [
         {
           "step": 1,
-          "action": "concurrent-poll",
-          "tool": "GET /tasks (both agents)",
-          "input": "Both DataHunter-1 and DataScraper-2 polling simultaneously",
-          "output": "Both agents detect same open task: content_gen, budget 1.0 CELO",
-          "status": "success"
+          "action": "submit-on-chain-bid",
+          "tool": "TaskMarket.sol.submitBid()",
+          "status": "success",
+          "txHash": "0x4f2e27b9ae1149885f4a68c415e55cc6bcac571ee94c9473309cf199f90f21e5",
+          "explorerURL": "https://sepolia.celoscan.io/tx/0x4f2e27b9ae1149885f4a68c415e55cc6bcac571ee94c9473309cf199f90f21e5"
         },
         {
           "step": 2,
-          "action": "competitive-bid-submission",
-          "tool": "TaskMarket.sol.submitBid()",
-          "input": "DataHunter-1 bids 0.9 CELO (10% discount). DataScraper-2 bids 0.85 CELO (15% discount).",
-          "output": "Both bids recorded on-chain. Frontend shows bid comparison UI.",
-          "status": "success"
-        },
-        {
-          "step": 3,
-          "action": "bid-selection",
-          "tool": "Frontend bid comparison UI",
-          "input": "Task poster reviews both bids: amount, rep score, pitch",
-          "output": "DataScraper-2 selected (lower bid). DataHunter-1 bid not selected.",
+          "action": "receive-payment-settlement",
           "status": "success",
-          "guardrail": "ERC-8004 rep score threshold enforced at contract level before bid submission allowed"
-        },
-        {
-          "step": 4,
-          "action": "content-generation-and-settlement",
-          "tool": "Gemini 2.5 Flash + Pinata + TaskMarket.sol.settleTask()",
-          "input": "DataScraper-2 executes, uploads to IPFS, poster settles",
-          "output": "Full flow completed. 0.68 CELO to DataScraper-2, 0.17 CELO to platform.",
-          "status": "success"
+          "txHash": "0x5414eaf1a471dff27b6efd657228c42c514192e077080f8e33e0ef1786c55b3a",
+          "explorerURL": "https://sepolia.celoscan.io/tx/0x5414eaf1a471dff27b6efd657228c42c514192e077080f8e33e0ef1786c55b3a",
+          "amountReceived": "0.72 CELO"
         }
       ]
     },
     {
       "sessionId": "session-004",
-      "timestamp": "2026-03-20T10:00:00Z",
-      "phase": "retry-and-safety",
+      "timestamp": "2026-03-20T10:20:42Z",
+      "phase": "third-bid-and-settle",
       "decisions": [
         {
           "step": 1,
-          "action": "execute-task-attempt-1",
-          "tool": "DeFiLlama API",
-          "input": "Fetch Celo TVL data",
-          "output": "API timeout on first attempt",
-          "status": "failed",
-          "error": "DeFiLlama API timeout after 10s"
+          "action": "submit-on-chain-bid",
+          "tool": "TaskMarket.sol.submitBid()",
+          "status": "success",
+          "txHash": "0x3884ba92984a9742b82eac6fb7a7f62ac796a067a38f6d2e6f891c7aab5ef563",
+          "explorerURL": "https://sepolia.celoscan.io/tx/0x3884ba92984a9742b82eac6fb7a7f62ac796a067a38f6d2e6f891c7aab5ef563"
         },
         {
           "step": 2,
-          "action": "execute-task-retry",
-          "tool": "DeFiLlama API",
-          "input": "Retry after 90s delay (auto-retry logic in agent.js)",
-          "output": "Data fetched successfully on retry",
+          "action": "receive-payment-settlement",
           "status": "success",
-          "guardrail": "Max 2 retries enforced. If retry 2 fails, task marked failed and poster notified."
+          "txHash": "0x9579798609c40104103f88f5b3852cebf129f7340e6f1b3d4472b6911742ec56",
+          "explorerURL": "https://sepolia.celoscan.io/tx/0x9579798609c40104103f88f5b3852cebf129f7340e6f1b3d4472b6911742ec56",
+          "amountReceived": "0.72 CELO"
+        }
+      ]
+    },
+    {
+      "sessionId": "session-005",
+      "timestamp": "2026-03-20T10:46:14Z",
+      "phase": "multi-agent-competition",
+      "notes": "DataScraper-2 introduced. Both agents autonomously bid on same task.",
+      "decisions": [
+        {
+          "step": 1,
+          "action": "submit-competing-bid",
+          "tool": "TaskMarket.sol.submitBid()",
+          "output": "DataHunter-1 bid submitted (10% discount). DataScraper-2 also bid (15% discount).",
+          "status": "success",
+          "txHash": "0x8df02370a3b6c0c57bf541d3450f694a8152dc40afd3c3930e0a3bfab58c1586",
+          "explorerURL": "https://sepolia.celoscan.io/tx/0x8df02370a3b6c0c57bf541d3450f694a8152dc40afd3c3930e0a3bfab58c1586",
+          "guardrail": "ERC-8004 rep score gating enforced at contract level before bid allowed"
         },
         {
-          "step": 3,
-          "action": "safety-check-before-settlement",
-          "tool": "internal validation",
-          "input": "Verify IPFS CID resolves before calling submit-work endpoint",
-          "output": "CID verified. Proceeding with submission.",
+          "step": 2,
+          "action": "bid-selection-by-poster",
+          "tool": "Frontend bid comparison UI",
+          "output": "Task poster reviewed both bids on-chain, selected winner. Atomic 80/20 settlement executed.",
+          "status": "success"
+        }
+      ]
+    },
+    {
+      "sessionId": "session-006",
+      "timestamp": "2026-03-21T13:38:16Z",
+      "phase": "latest-bid-and-settle",
+      "decisions": [
+        {
+          "step": 1,
+          "action": "submit-on-chain-bid",
+          "tool": "TaskMarket.sol.submitBid()",
           "status": "success",
-          "guardrail": "Agent never submits work without confirming deliverable is accessible on IPFS"
+          "txHash": "0x982a6f979b876583c4b02d94f2d78f4165acb28c7eb30d823a69651bf39c6ba7",
+          "explorerURL": "https://sepolia.celoscan.io/tx/0x982a6f979b876583c4b02d94f2d78f4165acb28c7eb30d823a69651bf39c6ba7"
+        },
+        {
+          "step": 2,
+          "action": "receive-payment-settlement",
+          "status": "success",
+          "txHash": "0xede3d6b228e7dbeab210455f67a6c190576fecb859978e2c7b26092ec89c7ff7",
+          "explorerURL": "https://sepolia.celoscan.io/tx/0xede3d6b228e7dbeab210455f67a6c190576fecb859978e2c7b26092ec89c7ff7",
+          "amountReceived": "0.72 CELO"
         }
       ]
     }
   ],
   "summary": {
-    "totalSessions": 4,
-    "tasksAttempted": 4,
-    "tasksCompleted": 3,
-    "tasksFailed": 0,
-    "retriesTriggered": 1,
-    "totalCELOEarned": "0.36 CELO (session-002)",
-    "onChainTxs": [
-      "Contract deployment",
-      "ERC-8004 identity registration",
-      "submitBid (session-002)",
-      "submitBid DataHunter-1 (session-003)",
-      "submitBid DataScraper-2 (session-003)",
-      "settleTask (session-002)",
-      "settleTask (session-003)"
-    ],
+    "totalSessions": 6,
+    "totalBidsSubmitted": 8,
+    "tasksCompleted": 4,
+    "totalCELOEarned": "2.80 CELO",
     "autonomyScore": "Full — zero human intervention in poll/bid/execute/upload/settle loop",
-    "erc8004Usage": ["identity registry", "reputation registry", "bid gating"],
+    "erc8004Usage": ["identity registry", "reputation registry", "reputation-gated bid submission"],
     "toolsUsed": ["DeFiLlama API", "Gemini 2.5 Flash", "Pinata IPFS", "ethers.js", "TaskMarket.sol"],
+    "allBidTxHashes": [
+      "0x89b6da4eaf0dba21aef6a59796effc81581188df5f14a453799148cfdee36de8",
+      "0x4f2e27b9ae1149885f4a68c415e55cc6bcac571ee94c9473309cf199f90f21e5",
+      "0x3884ba92984a9742b82eac6fb7a7f62ac796a067a38f6d2e6f891c7aab5ef563",
+      "0x52d3610852eaab772879084bc44d64299786fe987f4fb5cbb7ecb04611510678",
+      "0x8df02370a3b6c0c57bf541d3450f694a8152dc40afd3c3930e0a3bfab58c1586",
+      "0x071b81d44dca067f5960d666933a16f4176f47def4dc8643c79ac327fd55534c",
+      "0xeb26810fb495a1ed8fbe893488b3922a32a24c296528eb226d47e3644f60c834",
+      "0x982a6f979b876583c4b02d94f2d78f4165acb28c7eb30d823a69651bf39c6ba7"
+    ],
+    "allSettlementTxHashes": [
+      "0x82823d247b0890050c0ac07a86ac9c05d42d9d70680e25f569fd0543fd6e1418",
+      "0x5414eaf1a471dff27b6efd657228c42c514192e077080f8e33e0ef1786c55b3a",
+      "0x9579798609c40104103f88f5b3852cebf129f7340e6f1b3d4472b6911742ec56",
+      "0xede3d6b228e7dbeab210455f67a6c190576fecb859978e2c7b26092ec89c7ff7"
+    ],
     "safetyMechanisms": [
-      "Deadline validation before bid submission",
-      "IPFS CID verification before work submission",
-      "Max 2 retries with 90s delay",
+      "Deadline validated before every bid submission",
+      "IPFS CID verified resolvable before submitting work",
+      "Max 2 retries with 90s delay on task execution failure",
       "ERC-8004 reputation gating enforced at contract level",
-      "Dispute resolution and escrow expiry handled on-chain"
+      "Dispute resolution and escrow expiry handled fully on-chain",
+      "Backend never handles funds — all payments via atomic contract settlement"
     ]
   }
 }
