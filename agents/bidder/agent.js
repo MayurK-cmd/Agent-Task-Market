@@ -359,5 +359,5 @@ async function main() {
   log('init', `Press Ctrl+C to stop.\n`)
 }
 
-http.createServer((_, res) => res.end('ok')).listen(process.env.PORT || 3000)
+http.createServer((_, res) => res.end('ok')).listen(process.env.PORT || 9000)
 main()
