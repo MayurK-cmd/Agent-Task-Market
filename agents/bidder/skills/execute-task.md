@@ -23,11 +23,11 @@ Task object with `status: in_progress` and `winning_bid_id` matching this agent.
    - What format? (JSON array, CSV)
 
 2. Collect the data using available tools:
-   - **On-chain Celo data:** query via `{CELO_RPC_URL}` using ethers.js
+   - **Stellar network data:** query via Stellar RPC
    - **DeFi TVL data:** fetch from DeFiLlama API `https://api.llama.fi/protocols`
-     then filter for `chain: "Celo"`
+     then filter for `chain: "Stellar"`
    - **Token prices:** fetch from `https://api.coingecko.com/api/v3/simple/price`
-   - **Wallet activity:** query Celo RPC for transaction history
+   - **Account activity:** query Stellar RPC for transaction history
 
 3. Structure the output as clean JSON:
 ```json
@@ -115,7 +115,7 @@ Task object with `status: in_progress` and `winning_bid_id` matching this agent.
 
 ### Category: defi_ops
 
-**Goal:** Monitor or execute a DeFi operation on Celo.
+**Goal:** Monitor or execute a DeFi operation on Stellar.
 
 **Steps:**
 1. Parse task for operation type:

@@ -3,31 +3,30 @@
  * Run: node agent.js
  */
 
-import { ethers }  from 'ethers'
+import { Keypair } from '@stellar/stellar-sdk'
 import 'dotenv/config'
-// Keep Render happy with a health check port
 import http from 'http'
 
 
 const CONFIG = {
   api:           process.env.MARKETPLACE_API || 'http://localhost:3001',
-  privateKey:    process.env.AGENT_PRIVATE_KEY,
   specialties:   (process.env.AGENT_SPECIALTIES || 'data_collection,content_gen').split(','),
   pollInterval:  parseInt(process.env.POLL_INTERVAL_MINUTES || '5') * 60 * 1000,
   bidDiscount:   parseFloat(process.env.BID_DISCOUNT_PERCENT || '10') / 100,
-  minBudgetCusd: parseFloat(process.env.MIN_BUDGET_CUSD || '0.5'),
-  maxBudgetCusd: parseFloat(process.env.MAX_BUDGET_CUSD || '10'),
+  minBudgetXlm:  parseFloat(process.env.MIN_BUDGET_XLM || '0.5'),
+  maxBudgetXlm:  parseFloat(process.env.MAX_BUDGET_XLM || '10'),
   maxActiveBids: parseInt(process.env.MAX_ACTIVE_BIDS || '3'),
   retryDelaySec: 90,
   maxRetries:    2,
 }
 
-if (!CONFIG.privateKey) { console.error('AGENT_PRIVATE_KEY not set'); process.exit(1) }
+const STELLAR = {
+  secretKey: process.env.STELLAR_SECRET_KEY,
+  publicKey: process.env.STELLAR_PUBLIC_KEY,
+}
 
-const provider = new ethers.JsonRpcProvider(
-  process.env.CELO_RPC_URL || 'https://forno.celo-sepolia.celo-testnet.org'
-)
-const wallet = new ethers.Wallet(CONFIG.privateKey, provider)
+if (!STELLAR.secretKey) { console.error('STELLAR_SECRET_KEY not set'); process.exit(1) }
+const wallet = Keypair.fromSecret(STELLAR.secretKey)
 
 console.log(`\n╔══════════════════════════════════════════╗`)
 console.log(`║   AgentMarket Bidder Agent               ║`)
@@ -43,12 +42,12 @@ const inProgress = new Map()
 
 async function authHeaders() {
   const message   = `AgentMarket:${crypto.randomUUID()}:${Date.now()}`
-  const signature = await wallet.signMessage(message)
+  const signature = wallet.sign(Buffer.from(message)).toString('hex')
   return {
-    'Content-Type':        'application/json',
-    'x-wallet-address':    wallet.address,
-    'x-wallet-message':    message,
-    'x-wallet-signature':  signature,
+    'Content-Type':       'application/json',
+    'x-wallet-address':   wallet.publicKey(),
+    'x-wallet-message':   message,
+    'x-wallet-signature': signature,
   }
 }
 
@@ -68,14 +67,7 @@ async function apiPost(path, data) {
   return { status: res.status, body }
 }
 
-function getContract() {
-  if (!process.env.CONTRACT_ADDRESS) return null
-  return new ethers.Contract(process.env.CONTRACT_ADDRESS, [
-    'function submitBid(uint256 taskId,uint256 amount,string message) returns (uint256)',
-    'function getBid(uint256 bidId) view returns (tuple(uint256 id,uint256 taskId,address bidder,uint256 amount,uint8 status,string message))',
-    'function getTaskBids(uint256 taskId) view returns (uint256[])',
-  ], wallet)
-}
+// No contract needed - using Stellar-only backend
 
 // ── Gemini 2.5 Flash ──────────────────────────────────────────────────────────
 async function callGemini(systemPrompt, userPrompt) {
@@ -111,17 +103,17 @@ async function pollTasks() {
     if (activeBids.has(t.id))                       return false
     if (activeBids.size >= CONFIG.maxActiveBids)    return false
     if (new Date(t.deadline) < new Date())          return false
-    const b = Number(BigInt(t.budget_wei)) / 1e18
-    return b >= CONFIG.minBudgetCusd && b <= CONFIG.maxBudgetCusd
+    const b = Number(BigInt(t.budget_wei)) / 1e7  // Stellar stroops (1 XLM = 10^7)
+    return b >= CONFIG.minBudgetXlm && b <= CONFIG.maxBudgetXlm
   })
 
   if (!eligible.length) { log('poll', 'No eligible tasks after filtering'); return }
 
   const best = eligible
-    .map(t => ({ task: t, score: (Number(BigInt(t.budget_wei)) / 1e18) - (t.bid_count * 0.1) }))
+    .map(t => ({ task: t, score: (Number(BigInt(t.budget_wei)) / 1e7) - (t.bid_count * 0.1) }))
     .sort((a, b) => b.score - a.score)[0].task
 
-  log('poll', `Best task: "${best.title}" (${(Number(BigInt(best.budget_wei))/1e18).toFixed(2)} CELO)`)
+  log('poll', `Best task: "${best.title}" (${(Number(BigInt(best.budget_wei))/1e7).toFixed(2)} XLM)`)
   await submitBid(best)
 }
 
@@ -131,33 +123,17 @@ async function submitBid(task) {
   const discountBps  = BigInt(Math.floor(CONFIG.bidDiscount * 10000))
   const bidAmountWei = budgetWei - (budgetWei * discountBps / 10000n)
   const messages = {
-    data_collection: `I specialise in structured data extraction on Celo. Clean JSON delivery within 30 minutes.`,
-    content_gen:     `I generate high-quality Web3 content for the Celo ecosystem. Delivery within 20 minutes.`,
+    data_collection: `I specialise in structured data extraction on Stellar. Clean JSON delivery within 30 minutes.`,
+    content_gen:     `I generate high-quality Web3 content for the Stellar ecosystem. Delivery within 20 minutes.`,
     code_review:     `Senior Solidity auditor. Vulnerabilities, gas issues, and logic errors. Delivery within 1 hour.`,
-    defi_ops:        `Celo DeFi analyst. Verified structured report within 15 minutes.`,
+    defi_ops:        `Stellar DeFi analyst. Verified structured report within 15 minutes.`,
   }
   const message = messages[task.category] || 'Ready to complete this task efficiently.'
 
-  log('bid', `Bidding ${(Number(bidAmountWei)/1e18).toFixed(4)} CELO on "${task.title}"`)
-
-  let txHash = null
-  if (task.chain_task_id) {
-    try {
-      const contract = getContract()
-      if (contract) {
-        log('bid', `On-chain bid for chain task #${task.chain_task_id}...`)
-        const tx      = await contract.submitBid(task.chain_task_id, bidAmountWei, message)
-        const receipt = await tx.wait()
-        txHash = receipt.hash
-        log('bid', `On-chain tx: ${txHash}`)
-      }
-    } catch (err) {
-      log('bid', `On-chain bid failed: ${err.message} — API-only bid`)
-    }
-  }
+  log('bid', `Bidding ${(Number(bidAmountWei)/1e18).toFixed(4)} XLM on "${task.title}"`)
 
   const { status, body } = await apiPost('/bids', {
-    task_id: task.id, amount_wei: bidAmountWei.toString(), message, tx_hash: txHash,
+    task_id: task.id, amount_wei: bidAmountWei.toString(), message,
   })
 
   if (status === 201) {
@@ -222,22 +198,22 @@ async function executeTask(task, attempt = 1) {
 
 // ── Data collection ───────────────────────────────────────────────────────────
 async function executeDataCollection(task) {
-  log('execute', 'Fetching Celo DeFi data from DeFiLlama...')
-  const res       = await fetch('https://api.llama.fi/protocols')
+  log('execute', 'Fetching DeFi data from DeFiLlama...')
+  const res = await fetch('https://api.llama.fi/protocols')
   const protocols = await res.json()
   const data = protocols
-    .filter(p => (p.chains || []).some(c => c.toLowerCase() === 'celo') && (p.chainTvls?.Celo || 0) > 1000)
-    .sort((a, b) => (b.chainTvls?.Celo || 0) - (a.chainTvls?.Celo || 0))
+    .filter(p => (p.chains || []).some(c => c.toLowerCase() === 'stellar') && (p.chainTvls?.Stellar || 0) > 1000)
+    .sort((a, b) => (b.chainTvls?.Stellar || 0) - (a.chainTvls?.Stellar || 0))
     .slice(0, 20)
     .map(p => ({
-      name:          p.name,
-      symbol:        p.symbol,
-      tvl_usd_celo:  p.chainTvls?.Celo || 0,
+      name: p.name,
+      symbol: p.symbol,
+      tvl_usd_stellar: p.chainTvls?.Stellar || 0,
       tvl_usd_total: p.tvl,
-      category:      p.category,
-      url:           p.url,
+      category: p.category,
+      url: p.url,
     }))
-  return { task_id: task.id, collected_at: new Date().toISOString(), source: 'DeFiLlama — Celo chain only', record_count: data.length, data }
+  return { task_id: task.id, collected_at: new Date().toISOString(), source: 'DeFiLlama — Stellar chain only', record_count: data.length, data }
 }
 
 // ── Content generation ────────────────────────────────────────────────────────
@@ -254,7 +230,7 @@ Generate the requested content. Return this exact JSON:
   "items": [{ "index": 1, "text": "..." }],
   "word_count": 0
 }
-Each item is one piece of content. Base on real Celo facts. Return ONLY valid JSON.`
+Each item is one piece of content. Base on real Stellar facts. Return ONLY valid JSON.`
   )
   const parsed = JSON.parse(raw)
   return { task_id: task.id, generated_at: new Date().toISOString(), content_type: 'generated', prompt_used: task.title, items: parsed.items || [], word_count: parsed.word_count || 0 }
@@ -283,7 +259,7 @@ Return ONLY valid JSON.`
 async function executeDefiOps(task) {
   log('execute', 'Calling Gemini 2.5 Flash for DeFi analysis...')
   const raw = await callGemini(
-    `You are a Celo DeFi analyst. Always respond with valid JSON only — no markdown, no preamble.`,
+    `You are a Stellar DeFi analyst. Always respond with valid JSON only — no markdown, no preamble.`,
     `Task: ${task.title}
 Description: ${task.description || task.title}
 
@@ -304,10 +280,19 @@ Return ONLY valid JSON.`
 // ── Submit work ───────────────────────────────────────────────────────────────
 async function submitWork(task, deliverable) {
   log('submit', `Uploading deliverable for task ${task.id}...`)
-  const headers        = await authHeaders()
-  headers['x-payment'] = 'testnet-bypass'
-  const res  = await fetch(`${CONFIG.api}/verify`, {
-    method: 'POST', headers,
+  const headers = await authHeaders()
+
+  // Generate x402 payment signature with Stellar
+  if (STELLAR.secretKey) {
+    const keypair = Keypair.fromSecret(STELLAR.secretKey)
+    const message = `x402:0:verify-task-${task.id}:${Date.now()}`
+    const signature = keypair.sign(Buffer.from(message)).toString('hex')
+    headers['payment-signature'] = `${keypair.publicKey()}:${signature}:${message}`
+  }
+
+  const res = await fetch(`${CONFIG.api}/verify`, {
+    method: 'POST',
+    headers,
     body: JSON.stringify({ task_id: task.id, content: deliverable, content_type: 'json' }),
   })
   const body = await res.json()

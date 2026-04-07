@@ -4,11 +4,11 @@ import { verifyWalletSignature, isSignatureTimely } from '../lib/wallet.js'
  * Middleware: requireWalletAuth
  *
  * Expects these headers on the request:
- *   x-wallet-address   : 0x...  (Celo address)
+ *   x-wallet-address   : G...  (Stellar public key)
  *   x-wallet-message   : "AgentMarket:<nonce>:<timestamp>"
- *   x-wallet-signature : 0x...  (EIP-191 sig)
+ *   x-wallet-signature : hex   (Stellar signature)
  *
- * On success: attaches req.wallet = checksummed address
+ * On success: attaches req.wallet = lowercase address
  * On failure: 401
  */
 export function requireWalletAuth(req, res, next) {

@@ -1,113 +1,129 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react'
-import { ethers } from 'ethers'
-import { CHAIN_ID, CHAIN_NAME, RPC_URL, EXPLORER } from '../lib/config.js'
 
 const WalletContext = createContext(null)
 
 export function WalletProvider({ children }) {
-  const [wallet,  setWallet]  = useState(null)
+  const [wallet, setWallet] = useState(null)
   const [loading, setLoading] = useState(false)
-  const [error,   setError]   = useState(null)
-  const [chainOk, setChainOk] = useState(false)
+  const [error, setError] = useState(null)
 
-  // Find MetaMask specifically — Phantom also injects window.ethereum
-  const getMetaMask = useCallback(() => {
-    if (window.ethereum?.providers?.length) {
-      const mm = window.ethereum.providers.find(p => p.isMetaMask && !p.isPhantom)
-      if (mm) return mm
-    }
-    if (window.ethereum?.isMetaMask && !window.ethereum?.isPhantom) {
-      return window.ethereum
-    }
+  // Detect Stellar wallets
+  const getWallet = useCallback(() => {
+    if (typeof window === 'undefined') return null
+    console.log('[Wallet] window.stellar:', window.stellar)
+    console.log('[Wallet] window.rabet:', window.rabet)
+    // Check for Rabet (various exposures)
+    if (window.rabet) return { wallet: window.rabet, name: 'Rabet' }
+    if (window.stellar?.isRabet) return { wallet: window.stellar, name: 'Rabet' }
+    if (window.stellar?.isStellar) return { wallet: window.stellar, name: 'Rabet' }
+    // Check for Freighter
+    if (window.freighter?.isFreighter) return { wallet: window.freighter, name: 'Freighter' }
+    // Fallback to window.stellar
+    if (window.stellar) return { wallet: window.stellar, name: 'Stellar' }
     return null
   }, [])
 
-  useEffect(() => {
-    const mm = getMetaMask()
-    if (!mm) return
-    mm.request({ method: 'eth_accounts' }).then(accounts => {
-      if (accounts.length) connect(true)
-    })
-  }, [])
-
-  const connect = useCallback(async (silent = false) => {
-    const ethereum = getMetaMask()
-    if (!ethereum) {
-      setError('MetaMask not found. Install MetaMask from metamask.io — if you have Phantom, make sure MetaMask is also active.')
-      return
-    }
+  const connect = useCallback(async (secretKey) => {
     setLoading(true)
     setError(null)
-    try {
-      const provider = new ethers.BrowserProvider(ethereum)
-      if (!silent) await provider.send('eth_requestAccounts', [])
 
-      const network = await provider.getNetwork()
-      if (Number(network.chainId) !== CHAIN_ID) {
-        try {
-          await ethereum.request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: `0x${CHAIN_ID.toString(16)}` }],
-          })
-        } catch (switchErr) {
-          if (switchErr.code === 4902) {
-            await ethereum.request({
-              method: 'wallet_addEthereumChain',
-              params: [{
-                chainId:           `0x${CHAIN_ID.toString(16)}`,
-                chainName:          CHAIN_NAME,
-                nativeCurrency:    { name: 'CELO', symbol: 'CELO', decimals: 18 },
-                rpcUrls:           [RPC_URL],
-                blockExplorerUrls: [EXPLORER],
-              }],
-            })
-          } else throw switchErr
-        }
+    // If secret key provided, use it directly
+    if (secretKey) {
+      try {
+        const { Keypair } = await import('@stellar/stellar-sdk')
+        const keypair = Keypair.fromSecret(secretKey)
+        setWallet({
+          publicKey: keypair.publicKey(),
+          keypair,
+          isManual: true,
+        })
+        setLoading(false)
+        return
+      } catch (err) {
+        setError('Invalid secret key')
+        setLoading(false)
+        return
       }
+    }
 
-      const signer  = await provider.getSigner()
-      const address = await signer.getAddress()
-      setWallet({ address, signer, provider, ethereum })
-      setChainOk(true)
+    // Try wallet extension
+    const detected = getWallet()
+    console.log('[Wallet] Detected:', detected)
+
+    if (!detected) {
+      setError('No Stellar wallet found. Install Rabet at rabet.io or enter secret key.')
+      setLoading(false)
+      return
+    }
+
+    try {
+      // Request connection
+      console.log('[Wallet] Connecting to', detected.name)
+      await detected.wallet.connect?.()
+      const publicKey = await detected.wallet.getAddress?.()
+      console.log('[Wallet] Connected:', publicKey)
+
+      setWallet({
+        publicKey,
+        wallet: detected.wallet,
+        isRabet: detected.name === 'Rabet',
+      })
     } catch (err) {
-      if (!silent) setError(err.message || 'Failed to connect')
+      console.error('[Wallet] Connect error:', err)
+      setError(err.message || `Failed to connect ${detected.name}`)
     } finally {
       setLoading(false)
     }
-  }, [getMetaMask])
+  }, [getWallet])
 
-  const disconnect = useCallback(() => {
+  const disconnect = useCallback(async () => {
+    const detected = getWallet()
+    if (detected?.wallet?.disconnect) {
+      await detected.wallet.disconnect()
+    }
     setWallet(null)
-    setChainOk(false)
-  }, [])
+  }, [getWallet])
 
   const authHeaders = useCallback(async () => {
     if (!wallet) throw new Error('Wallet not connected')
-    const message   = `AgentMarket:${crypto.randomUUID()}:${Date.now()}`
-    const signature = await wallet.signer.signMessage(message)
+    const message = `AgentMarket:${crypto.randomUUID()}:${Date.now()}`
+
+    let signature
+    if (wallet.isRabet && wallet.wallet.signMessage) {
+      // Use Rabet's signMessage
+      signature = await wallet.wallet.signMessage(message)
+    } else {
+      // Fallback: prompt for secret key
+      const secretKey = prompt('Enter secret key to sign:')
+      if (!secretKey) throw new Error('Signing cancelled')
+      const { Keypair } = await import('@stellar/stellar-sdk')
+      const keypair = Keypair.fromSecret(secretKey)
+      signature = keypair.sign(Buffer.from(message)).toString('hex')
+    }
+
     return {
-      'Content-Type':        'application/json',
-      'x-wallet-address':    wallet.address,
-      'x-wallet-message':    message,
-      'x-wallet-signature':  signature,
+      'Content-Type': 'application/json',
+      'x-wallet-address': wallet.publicKey,
+      'x-wallet-message': message,
+      'x-wallet-signature': signature,
     }
   }, [wallet])
 
+  // Auto-reconnect on page load
   useEffect(() => {
-    const ethereum = getMetaMask()
-    if (!ethereum) return
-    const onAccounts = (accounts) => { if (!accounts.length) disconnect() }
-    const onChain    = () => connect(true)
-    ethereum.on('accountsChanged', onAccounts)
-    ethereum.on('chainChanged',    onChain)
-    return () => {
-      ethereum.removeListener('accountsChanged', onAccounts)
-      ethereum.removeListener('chainChanged',    onChain)
-    }
-  }, [connect, disconnect, getMetaMask])
+    const detected = getWallet()
+    if (!detected) return
+    detected.wallet.isConnected?.().then(connected => {
+      if (connected) {
+        detected.wallet.getAddress().then(publicKey => {
+          setWallet({ publicKey, wallet: detected.wallet, isRabet: detected.name === 'Rabet' })
+        })
+      }
+    })
+  }, [getWallet])
 
   return (
-    <WalletContext.Provider value={{ wallet, loading, error, chainOk, connect, disconnect, authHeaders }}>
+    <WalletContext.Provider value={{ wallet, loading, error, connect, disconnect, authHeaders }}>
       {children}
     </WalletContext.Provider>
   )

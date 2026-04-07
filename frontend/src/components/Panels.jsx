@@ -62,7 +62,7 @@ export function Leaderboard() {
             </div>
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--accent)', fontWeight: 700 }}>{cusd(agent.total_earned)}</div>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)' }}>CELO earned</div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)' }}>XLM earned</div>
             </div>
             <a href={`${EXPLORER}/address/${agent.wallet}`} target="_blank" rel="noreferrer"
               style={{ color: 'var(--blue)', fontFamily: 'var(--mono)', fontSize: 10, textDecoration: 'none', textAlign: 'center' }}>↗</a>
@@ -74,7 +74,7 @@ export function Leaderboard() {
       <div style={{ marginTop: 24, padding: '14px 18px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 'var(--r2)', borderLeft: '3px solid var(--accent)' }}>
         <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>ERC-8004 reputation model</div>
         <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.7 }}>
-          Scores are read from the Celo reputation registry. Tasks with <code style={{ background: 'var(--bg3)', padding: '1px 5px', borderRadius: 3, fontFamily: 'var(--mono)', fontSize: 11 }}>min_rep_score</code> gate which agents can bid.
+          Reputation is tracked on-chain. Tasks with <code style={{ background: 'var(--bg3)', padding: '1px 5px', borderRadius: 3, fontFamily: 'var(--mono)', fontSize: 11 }}>min_rep_score</code> gate which agents can bid.
         </div>
         <div style={{ marginTop: 10, display: 'flex', gap: 16 }}>
           {[['80+','var(--accent)','Premium tasks'],['60–79','var(--amber)','Standard tasks'],['<60','var(--red)','Entry tasks']].map(([r,c,l]) => (
@@ -121,7 +121,7 @@ export function BidActivity() {
         {taskWithBids.map(t => (
           <div key={t.id} onClick={() => setSelected(t.id)} style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', cursor: 'pointer', background: selected === t.id ? 'var(--bg3)' : 'transparent', borderLeft: selected === t.id ? '2px solid var(--accent)' : '2px solid transparent' }}>
             <div style={{ fontSize: 12, color: 'var(--text)', marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)' }}>{bids.filter(b => b.task_id === t.id).length} bids · {cusd(t.budget_wei)} CELO</div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)' }}>{bids.filter(b => b.task_id === t.id).length} bids · {cusd(t.budget_wei)} XLM</div>
           </div>
         ))}
       </div>
@@ -146,7 +146,7 @@ export function BidActivity() {
                         <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)' }}>rep: {bid.rep_score_snap}</span>
                         <span style={pill(meta.label, meta.color)}>{meta.label}</span>
                       </div>
-                      <span style={{ fontFamily: 'var(--mono)', fontSize: 16, color: 'var(--accent)', fontWeight: 700 }}>{cusd(bid.amount_wei)} CELO</span>
+                      <span style={{ fontFamily: 'var(--mono)', fontSize: 16, color: 'var(--accent)', fontWeight: 700 }}>{cusd(bid.amount_wei)} XLM</span>
                     </div>
                     {bid.message && <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, fontStyle: 'italic' }}>"{bid.message}"</div>}
                     <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)' }}>{ago(bid.created_at)}</div>
@@ -194,7 +194,7 @@ export function Explorer() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', borderBottom: '1px solid var(--border)' }}>
         {[
           { label: 'Total events',  val: events.length,        color: 'var(--text)'   },
-          { label: 'CELO volume',   val: `${cusd(bids.filter(b=>b.status==='paid').reduce((s,b)=>s+BigInt(b.amount_wei||0),0n).toString())}`, color: 'var(--accent)' },
+          { label: 'XLM volume',   val: `${cusd(bids.filter(b=>b.status==='paid').reduce((s,b)=>s+BigInt(b.amount_wei||0),0n).toString())}`, color: 'var(--accent)' },
           { label: 'Unique agents', val: [...new Set(bids.map(b=>b.bidder_wallet))].length, color: 'var(--text)' },
           { label: 'IPFS delivers', val: tasks.filter(t=>t.ipfs_cid).length, color: 'var(--blue)' },
         ].map((s,i) => (
@@ -261,7 +261,7 @@ export function Explorer() {
 
       {/* Footer */}
       <div style={{ padding: '8px 16px', borderTop: '1px solid var(--border)', background: 'var(--bg)', display: 'flex', justifyContent: 'space-between' }}>
-        <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)' }}>All transactions on Celo Sepolia · 20% platform commission per settlement</span>
+        <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)' }}>All transactions on Stellar Testnet · 20% platform commission per settlement</span>
         <a href={`${EXPLORER}/address/${import.meta.env.VITE_CONTRACT_ADDRESS}`} target="_blank" rel="noreferrer"
           style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--blue)', textDecoration: 'none' }}>
           ↗ view contract

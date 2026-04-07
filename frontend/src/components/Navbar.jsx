@@ -32,7 +32,7 @@ export default function Navbar() {
         <span style={{ fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 700, color: 'var(--accent)', letterSpacing: '-0.02em' }}>
           AGENTMARKET
         </span>
-        <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text3)' }}>/celo</span>
+        <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text3)' }}>/stellar</span>
       </Link>
 
       {/* Links */}

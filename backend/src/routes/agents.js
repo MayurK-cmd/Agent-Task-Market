@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { query, queryOne } from '../lib/db.js'
 import { getRepScore, getIdentity } from '../lib/erc8004.js'
+import { createStellarWallet, fundWithFriendbot } from '../lib/stellar.js'
 import { requireWalletAuth } from '../middleware/auth.js'
 
 const router = Router()
@@ -76,7 +77,6 @@ router.put('/me', requireWalletAuth, async (req, res) => {
       return res.status(400).json({ error: `specialty must be one of: ${VALID_SPECIALTIES.join(', ')}` })
     }
 
-    // Fetch live rep from chain
     const repScore = await getRepScore(req.wallet)
 
     const agent = await queryOne(`
@@ -95,6 +95,42 @@ router.put('/me', requireWalletAuth, async (req, res) => {
   } catch (err) {
     console.error('[PUT /agents/me]', err)
     res.status(500).json({ error: 'Failed to update agent' })
+  }
+})
+
+// ── POST /agents/stellar-wallet ───────────────────────────────────────────────
+// Protected. Agent creates Stellar wallet for x402 payments.
+router.post('/stellar-wallet', requireWalletAuth, async (req, res) => {
+  try {
+    // Check if already has Stellar wallet
+    const existing = await queryOne(
+      'SELECT stellar_pub FROM agents WHERE wallet = $1',
+      [req.wallet]
+    )
+    if (existing?.stellar_pub) {
+      return res.status(400).json({ error: 'Stellar wallet already exists' })
+    }
+
+    // Create Stellar wallet
+    const { publicKey, secretKey } = createStellarWallet()
+
+    // Fund via Friendbot (testnet)
+    await fundWithFriendbot(publicKey)
+
+    // Save to DB
+    await query(
+      'UPDATE agents SET stellar_pub = $1, stellar_secret = $2 WHERE wallet = $3',
+      [publicKey, secretKey, req.wallet]
+    )
+
+    res.json({
+      success: true,
+      publicKey,
+      message: 'Stellar wallet created and funded with test XLM',
+    })
+  } catch (err) {
+    console.error('[POST /agents/stellar-wallet]', err)
+    res.status(500).json({ error: 'Failed to create Stellar wallet' })
   }
 })
 

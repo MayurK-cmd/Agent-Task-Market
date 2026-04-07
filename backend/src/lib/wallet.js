@@ -1,19 +1,20 @@
-import { ethers } from 'ethers'
+import { Keypair } from '@stellar/stellar-sdk'
 
 /**
- * Verifies an EIP-191 personal_sign signature.
+ * Verifies a Stellar signature.
  *
  * How clients sign:
  *   const message = `AgentMarket:${nonce}:${Date.now()}`
- *   const sig = await signer.signMessage(message)
- *   // send: { wallet, message, signature }
+ *   const sig = keypair.sign(Buffer.from(message)).toString('hex')
+ *   // send: { wallet (G...), message, signature (hex) }
  *
- * The server checks that the recovered address matches `wallet`.
+ * The server verifies the signature matches the public key.
  */
 export function verifyWalletSignature(wallet, message, signature) {
   try {
-    const recovered = ethers.verifyMessage(message, signature)
-    return recovered.toLowerCase() === wallet.toLowerCase()
+    const keypair = Keypair.fromPublicKey(wallet)
+    const sig = Buffer.from(signature, 'hex')
+    return keypair.verify(Buffer.from(message), sig)
   } catch {
     return false
   }

@@ -3,11 +3,9 @@
  * Run: node agent.js
  */
 
-import { ethers }  from 'ethers'
+import { Keypair } from '@stellar/stellar-sdk'
 import 'dotenv/config'
-// Keep Render happy with a health check port
 import http from 'http'
-
 
 const CONFIG = {
   api:           process.env.MARKETPLACE_API || 'http://localhost:3001',
@@ -15,8 +13,8 @@ const CONFIG = {
   specialties:   (process.env.AGENT_SPECIALTIES || 'data_collection,content_gen').split(','),
   pollInterval:  parseInt(process.env.POLL_INTERVAL_MINUTES || '5') * 60 * 1000,
   bidDiscount:   parseFloat(process.env.BID_DISCOUNT_PERCENT || '10') / 100,
-  minBudgetCusd: parseFloat(process.env.MIN_BUDGET_CUSD || '0.5'),
-  maxBudgetCusd: parseFloat(process.env.MAX_BUDGET_CUSD || '10'),
+  minBudgetXlm:  parseFloat(process.env.MIN_BUDGET_XLM || '0.5'),
+  maxBudgetXlm:  parseFloat(process.env.MAX_BUDGET_XLM || '10'),
   maxActiveBids: parseInt(process.env.MAX_ACTIVE_BIDS || '3'),
   retryDelaySec: 90,
   maxRetries:    2,
@@ -24,16 +22,14 @@ const CONFIG = {
 
 if (!CONFIG.privateKey) { console.error('AGENT_PRIVATE_KEY not set'); process.exit(1) }
 
-const provider = new ethers.JsonRpcProvider(
-  process.env.CELO_RPC_URL || 'https://forno.celo-sepolia.celo-testnet.org'
-)
-const wallet = new ethers.Wallet(CONFIG.privateKey, provider)
+const keypair = Keypair.fromSecret(CONFIG.privateKey)
+const walletAddress = keypair.publicKey()
 
 console.log(`\n╔══════════════════════════════════════════╗`)
 console.log(`║   AgentMarket Bidder Agent               ║`)
-console.log(`║   OpenClaw-compatible runner             ║`)
+console.log(`║   Stellar-native runner                  ║`)
 console.log(`╚══════════════════════════════════════════╝\n`)
-console.log(`🤖 Agent wallet: ${wallet.address}`)
+console.log(`🤖 Agent wallet: ${walletAddress}`)
 console.log(`📡 API: ${CONFIG.api}`)
 console.log(`🎯 Specialties: ${CONFIG.specialties.join(', ')}`)
 console.log(`🔁 Retry: ${CONFIG.maxRetries}x after ${CONFIG.retryDelaySec}s\n`)
@@ -43,10 +39,10 @@ const inProgress = new Map()
 
 async function authHeaders() {
   const message   = `AgentMarket:${crypto.randomUUID()}:${Date.now()}`
-  const signature = await wallet.signMessage(message)
+  const signature = keypair.sign(Buffer.from(message)).toString('hex')
   return {
     'Content-Type':        'application/json',
-    'x-wallet-address':    wallet.address,
+    'x-wallet-address':    walletAddress,
     'x-wallet-message':    message,
     'x-wallet-signature':  signature,
   }
@@ -69,12 +65,9 @@ async function apiPost(path, data) {
 }
 
 function getContract() {
-  if (!process.env.CONTRACT_ADDRESS) return null
-  return new ethers.Contract(process.env.CONTRACT_ADDRESS, [
-    'function submitBid(uint256 taskId,uint256 amount,string message) returns (uint256)',
-    'function getBid(uint256 bidId) view returns (tuple(uint256 id,uint256 taskId,address bidder,uint256 amount,uint8 status,string message))',
-    'function getTaskBids(uint256 taskId) view returns (uint256[])',
-  ], wallet)
+  // Soroban contract interaction handled via backend API
+  if (!process.env.SOROBAN_CONTRACT_ADDRESS) return null
+  return null
 }
 
 // ── Gemini 2.5 Flash ──────────────────────────────────────────────────────────
@@ -111,17 +104,17 @@ async function pollTasks() {
     if (activeBids.has(t.id))                       return false
     if (activeBids.size >= CONFIG.maxActiveBids)    return false
     if (new Date(t.deadline) < new Date())          return false
-    const b = Number(BigInt(t.budget_wei)) / 1e18
-    return b >= CONFIG.minBudgetCusd && b <= CONFIG.maxBudgetCusd
+    const b = Number(BigInt(t.budget_wei)) / 1e7
+    return b >= CONFIG.minBudgetXlm && b <= CONFIG.maxBudgetXlm
   })
 
   if (!eligible.length) { log('poll', 'No eligible tasks after filtering'); return }
 
   const best = eligible
-    .map(t => ({ task: t, score: (Number(BigInt(t.budget_wei)) / 1e18) - (t.bid_count * 0.1) }))
+    .map(t => ({ task: t, score: (Number(BigInt(t.budget_wei)) / 1e7) - (t.bid_count * 0.1) }))
     .sort((a, b) => b.score - a.score)[0].task
 
-  log('poll', `Best task: "${best.title}" (${(Number(BigInt(best.budget_wei))/1e18).toFixed(2)} CELO)`)
+  log('poll', `Best task: "${best.title}" (${(Number(BigInt(best.budget_wei))/1e7).toFixed(2)} XLM)`)
   await submitBid(best)
 }
 
@@ -131,14 +124,14 @@ async function submitBid(task) {
   const discountBps  = BigInt(Math.floor(CONFIG.bidDiscount * 10000))
   const bidAmountWei = budgetWei - (budgetWei * discountBps / 10000n)
   const messages = {
-    data_collection: `I specialise in structured data extraction on Celo. Clean JSON delivery within 30 minutes.`,
-    content_gen:     `I generate high-quality Web3 content for the Celo ecosystem. Delivery within 20 minutes.`,
-    code_review:     `Senior Solidity auditor. Vulnerabilities, gas issues, and logic errors. Delivery within 1 hour.`,
-    defi_ops:        `Celo DeFi analyst. Verified structured report within 15 minutes.`,
+    data_collection: `I specialise in structured data extraction on Stellar. Clean JSON delivery within 30 minutes.`,
+    content_gen:     `I generate high-quality Web3 content for the Stellar ecosystem. Delivery within 20 minutes.`,
+    code_review:     `Senior Soroban auditor. Vulnerabilities, gas issues, and logic errors. Delivery within 1 hour.`,
+    defi_ops:        `Stellar DeFi analyst. Verified structured report within 15 minutes.`,
   }
   const message = messages[task.category] || 'Ready to complete this task efficiently.'
 
-  log('bid', `Bidding ${(Number(bidAmountWei)/1e18).toFixed(4)} CELO on "${task.title}"`)
+  log('bid', `Bidding ${(Number(bidAmountWei)/1e7).toFixed(4)} XLM on "${task.title}"`)
 
   let txHash = null
   if (task.chain_task_id) {
@@ -222,22 +215,22 @@ async function executeTask(task, attempt = 1) {
 
 // ── Data collection ───────────────────────────────────────────────────────────
 async function executeDataCollection(task) {
-  log('execute', 'Fetching Celo DeFi data from DeFiLlama...')
+  log('execute', 'Fetching Stellar DeFi data from DeFiLlama...')
   const res       = await fetch('https://api.llama.fi/protocols')
   const protocols = await res.json()
   const data = protocols
-    .filter(p => (p.chains || []).some(c => c.toLowerCase() === 'celo') && (p.chainTvls?.Celo || 0) > 1000)
-    .sort((a, b) => (b.chainTvls?.Celo || 0) - (a.chainTvls?.Celo || 0))
+    .filter(p => (p.chains || []).some(c => c.toLowerCase() === 'stellar') && (p.chainTvls?.Stellar || 0) > 1000)
+    .sort((a, b) => (b.chainTvls?.Stellar || 0) - (a.chainTvls?.Stellar || 0))
     .slice(0, 20)
     .map(p => ({
-      name:          p.name,
-      symbol:        p.symbol,
-      tvl_usd_celo:  p.chainTvls?.Celo || 0,
-      tvl_usd_total: p.tvl,
-      category:      p.category,
-      url:           p.url,
+      name:             p.name,
+      symbol:           p.symbol,
+      tvl_usd_stellar:  p.chainTvls?.Stellar || 0,
+      tvl_usd_total:    p.tvl,
+      category:         p.category,
+      url:              p.url,
     }))
-  return { task_id: task.id, collected_at: new Date().toISOString(), source: 'DeFiLlama — Celo chain only', record_count: data.length, data }
+  return { task_id: task.id, collected_at: new Date().toISOString(), source: 'DeFiLlama — Stellar chain only', record_count: data.length, data }
 }
 
 // ── Content generation ────────────────────────────────────────────────────────
@@ -254,7 +247,7 @@ Generate the requested content. Return this exact JSON:
   "items": [{ "index": 1, "text": "..." }],
   "word_count": 0
 }
-Each item is one piece of content. Base on real Celo facts. Return ONLY valid JSON.`
+Each item is one piece of content. Base on real Stellar facts. Return ONLY valid JSON.`
   )
   const parsed = JSON.parse(raw)
   return { task_id: task.id, generated_at: new Date().toISOString(), content_type: 'generated', prompt_used: task.title, items: parsed.items || [], word_count: parsed.word_count || 0 }
@@ -283,7 +276,7 @@ Return ONLY valid JSON.`
 async function executeDefiOps(task) {
   log('execute', 'Calling Gemini 2.5 Flash for DeFi analysis...')
   const raw = await callGemini(
-    `You are a Celo DeFi analyst. Always respond with valid JSON only — no markdown, no preamble.`,
+    `You are a Stellar DeFi analyst. Always respond with valid JSON only — no markdown, no preamble.`,
     `Task: ${task.title}
 Description: ${task.description || task.title}
 

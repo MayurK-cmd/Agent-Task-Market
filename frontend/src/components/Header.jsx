@@ -30,8 +30,8 @@ export default function Header({ activeTab, onTabChange }) {
     { label: 'online agents', val: stats.online_agents,  accent: true  },
     { label: 'open tasks',    val: stats.open_tasks,     accent: true  },
     { label: 'total bids',    val: stats.total_bids,     accent: false },
-    { label: 'volume',        val: `$${cusd(stats.total_volume_wei)} cUSD`, accent: false },
-    { label: 'network',       val: 'Celo Sepolia',        accent: false },
+    { label: 'volume',        val: `${cusd(stats.total_volume_wei)} XLM`, accent: false },
+    { label: 'network',       val: 'Stellar Testnet',     accent: false },
   ] : []
 
   return (
@@ -41,7 +41,7 @@ export default function Header({ activeTab, onTabChange }) {
         <div style={S.logo}>
           <div style={S.icon}>A</div>
           AGENTMARKET
-          <span style={{ color: 'var(--text3)', fontWeight: 400, fontSize: 12 }}>/celo</span>
+          <span style={{ color: 'var(--text3)', fontWeight: 400, fontSize: 12 }}>/stellar</span>
         </div>
 
         {/* Tabs */}

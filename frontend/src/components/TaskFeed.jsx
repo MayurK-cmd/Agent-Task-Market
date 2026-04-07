@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react'
-import { ethers }              from 'ethers'
-import { useTasks, useBids }   from '../hooks/useMarketPlace.js'
-import { useWallet }           from '../hooks/useWallet.jsx'
-import { useContract }         from '../hooks/useMarketPlace.js'
+import { useTasks, useBids } from '../hooks/useMarketPlace.js'
+import { useWallet } from '../hooks/useWallet.jsx'
 import { CATEGORY_COLORS, STATUS_COLORS, EXPLORER, API_BASE, shortAddr, ago, timeLeft, cusd } from '../lib/config.js'
 import PostTask from './PostTask.jsx'
 
@@ -208,7 +206,7 @@ function BidCard({ bid, rank, isWinner, canAccept, loading, onAccept }) {
       <div style={{ display: 'flex', gap: 20, marginBottom: bid.message ? 10 : 0 }}>
         <div>
           <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)', marginBottom: 2 }}>bid amount</div>
-          <div style={{ fontFamily: 'var(--mono)', fontSize: 16, color: 'var(--accent)', fontWeight: 700 }}>{cusd(bid.amount_wei)} CELO</div>
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 16, color: 'var(--accent)', fontWeight: 700 }}>{cusd(bid.amount_wei)} XLM</div>
         </div>
         <div>
           <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)', marginBottom: 2 }}>rep score</div>
@@ -249,7 +247,7 @@ function BidCard({ bid, rank, isWinner, canAccept, loading, onAccept }) {
       {canAccept && bid.status === 'pending' && (
         <button onClick={() => onAccept(bid.id)} disabled={loading}
           style={{ ...btn('var(--accent)', loading), width: '100%', padding: '8px', textAlign: 'center' }}>
-          {loading ? 'accepting...' : `accept this bid — ${cusd(bid.amount_wei)} CELO`}
+          {loading ? 'accepting...' : `accept this bid — ${cusd(bid.amount_wei)} XLM`}
         </button>
       )}
     </div>
@@ -360,7 +358,7 @@ function TaskRow({ task, index, wallet, authHeaders, contract, onRefetch }) {
       const body = await res.json()
       if (!res.ok) throw new Error(body.error)
 
-      setMsg({ ok: true, text: `Settled on-chain! ${(parseFloat(cusd(task.budget_wei)) * 0.8).toFixed(4)} CELO to agent · 20% to you. Tx: ${receipt.hash.slice(0,10)}...` })
+      setMsg({ ok: true, text: `Settled on Stellar! ${(parseFloat(cusd(task.budget_wei)) * 0.8).toFixed(4)} XLM to agent · 20% to you. Tx: ${payment.tx_hash.slice(0,10)}...` })
       onRefetch()
     } catch (err) {
       if (err.code === 4001) {
@@ -394,7 +392,7 @@ function TaskRow({ task, index, wallet, authHeaders, contract, onRefetch }) {
           </div>
         </div>
         <div><span style={pill(task.category.replace('_',' '), CATEGORY_COLORS[task.category] || '#888')}>{task.category.replace('_',' ')}</span></div>
-        <span style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--accent)', fontWeight: 700 }}>{cusd(task.budget_wei)} CELO</span>
+        <span style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--accent)', fontWeight: 700 }}>{cusd(task.budget_wei)} XLM</span>
         <div><span style={pill(task.status, STATUS_COLORS[task.status] || '#888')}>{task.status.replace('_',' ')}</span></div>
         <span style={{ fontFamily: 'var(--mono)', fontSize: 12, color: task.bid_count > 0 ? 'var(--text)' : 'var(--text3)' }}>
           {task.bid_count > 0 ? task.bid_count : '—'}
@@ -468,9 +466,9 @@ function TaskRow({ task, index, wallet, authHeaders, contract, onRefetch }) {
                   {/* Payment breakdown */}
                   <div style={{ display: 'flex', gap: 16, marginBottom: 12 }}>
                     {[
-                      { label: 'budget', val: `${cusd(task.budget_wei)} CELO`, color: 'var(--text)' },
-                      { label: 'agent gets (80%)', val: `${(parseFloat(cusd(task.budget_wei)) * 0.8).toFixed(4)} CELO`, color: 'var(--accent)' },
-                      { label: 'you get (20%)', val: `${(parseFloat(cusd(task.budget_wei)) * 0.2).toFixed(4)} CELO`, color: 'var(--amber)' },
+                      { label: 'budget', val: `${cusd(task.budget_wei)} XLM`, color: 'var(--text)' },
+                      { label: 'agent gets (80%)', val: `${(parseFloat(cusd(task.budget_wei)) * 0.8).toFixed(4)} XLM`, color: 'var(--accent)' },
+                      { label: 'you get (20%)', val: `${(parseFloat(cusd(task.budget_wei)) * 0.2).toFixed(4)} XLM`, color: 'var(--amber)' },
                     ].map(s => (
                       <div key={s.label}>
                         <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)', marginBottom: 2 }}>{s.label}</div>

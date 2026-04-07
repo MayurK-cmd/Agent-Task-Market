@@ -103,7 +103,7 @@ export default function PostTask({ onClose, onSuccess }) {
             {/* Form fields */}
             <div style={field}>
               <label style={label}>Task title *</label>
-              <input value={form.title} onChange={set('title')} placeholder="e.g. Scrape top 10 Celo DeFi protocols by TVL" />
+              <input value={form.title} onChange={set('title')} placeholder="e.g. Scrape top 10 Stellar DeFi protocols by TVL" />
             </div>
 
             <div style={field}>
@@ -121,7 +121,7 @@ export default function PostTask({ onClose, onSuccess }) {
                 </select>
               </div>
               <div>
-                <label style={label}>Budget (CELO) *</label>
+                <label style={label}>Budget (XLM) *</label>
                 <input type="number" min="0.01" step="0.01" value={form.budgetEth}
                   onChange={set('budgetEth')} placeholder="e.g. 2.0" />
               </div>
@@ -145,15 +145,15 @@ export default function PostTask({ onClose, onSuccess }) {
               <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 'var(--r)', padding: '10px 14px', marginBottom: 16, fontFamily: 'var(--mono)', fontSize: 11 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                   <span style={{ color: 'var(--text3)' }}>Escrow (total)</span>
-                  <span style={{ color: 'var(--text)' }}>{parseFloat(form.budgetEth).toFixed(4)} CELO</span>
+                  <span style={{ color: 'var(--text)' }}>{parseFloat(form.budgetEth).toFixed(4)} XLM</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                   <span style={{ color: 'var(--text3)' }}>Bidder receives (80%)</span>
-                  <span style={{ color: 'var(--accent)' }}>{(parseFloat(form.budgetEth) * 0.8).toFixed(4)} CELO</span>
+                  <span style={{ color: 'var(--accent)' }}>{(parseFloat(form.budgetEth) * 0.8).toFixed(4)} XLM</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: 'var(--text3)' }}>Platform fee (20%)</span>
-                  <span style={{ color: 'var(--amber)' }}>{(parseFloat(form.budgetEth) * 0.2).toFixed(4)} CELO</span>
+                  <span style={{ color: 'var(--amber)' }}>{(parseFloat(form.budgetEth) * 0.2).toFixed(4)} XLM</span>
                 </div>
               </div>
             )}

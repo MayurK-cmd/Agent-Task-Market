@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { query, queryOne } from '../lib/db.js'
-import { getRepScore } from '../lib/erc8004.js'
+import { sendPayment } from '../lib/stellar.js'
+import { postTask, settleTask as settleOnChain } from '../lib/soroban.js'
 import { requireWalletAuth } from '../middleware/auth.js'
 
 const router = Router()
@@ -73,16 +74,14 @@ router.get('/:id', async (req, res) => {
 })
 
 // ── POST /tasks ───────────────────────────────────────────────────────────────
-// Protected (wallet auth). Anyone with a valid Celo wallet can post.
+// Protected (wallet auth). Creates task on Soroban contract + DB.
 router.post('/', requireWalletAuth, async (req, res) => {
   try {
     const {
       title, description, category, budget_wei,
       deadline, min_rep_score = 0,
-      chain_task_id, tx_hash,
     } = req.body
 
-    // Basic validation
     if (!title || !category || !budget_wei || !deadline) {
       return res.status(400).json({
         error: 'Required: title, category, budget_wei, deadline',
@@ -94,7 +93,15 @@ router.post('/', requireWalletAuth, async (req, res) => {
       return res.status(400).json({ error: `category must be one of: ${VALID_CATEGORIES.join(', ')}` })
     }
 
-    // Upsert poster into agents table (first time they post)
+    // Post to Soroban contract (escrow)
+    const sorobanResult = await postTask(
+      process.env.STELLAR_SECRET_KEY,
+      title,
+      budget_wei,
+      new Date(deadline).getTime()
+    )
+
+    // Upsert poster
     await query(`
       INSERT INTO agents (wallet, last_seen, is_online)
       VALUES ($1, NOW(), TRUE)
@@ -102,7 +109,7 @@ router.post('/', requireWalletAuth, async (req, res) => {
         SET last_seen = NOW(), is_online = TRUE
     `, [req.wallet])
 
-    // Create task
+    // Create task in DB
     const task = await queryOne(`
       INSERT INTO tasks
         (title, description, category, budget_wei, deadline, min_rep_score,
@@ -110,24 +117,22 @@ router.post('/', requireWalletAuth, async (req, res) => {
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
       RETURNING *
     `, [title, description, category, budget_wei, deadline, min_rep_score,
-        req.wallet, chain_task_id ?? null, tx_hash ?? null])
+        req.wallet, sorobanResult.taskId, sorobanResult.txHash])
 
-    // Log transaction event
     await query(`
       INSERT INTO transactions (type, task_id, from_wallet, tx_hash, meta)
       VALUES ('task_posted', $1, $2, $3, $4)
-    `, [task.id, req.wallet, tx_hash ?? null, JSON.stringify({ title, category })])
+    `, [task.id, req.wallet, sorobanResult.txHash, JSON.stringify({ title, category })])
 
     res.status(201).json({ task })
   } catch (err) {
     console.error('[POST /tasks]', err)
-    res.status(500).json({ error: 'Failed to create task' })
+    res.status(500).json({ error: 'Failed to create task: ' + err.message })
   }
 })
 
 // ── PATCH /tasks/:id/settle ───────────────────────────────────────────────────
-// Protected. Poster confirms completion → updates status, records IPFS CID.
-// Actual payment split happens on-chain in TaskMarket.sol::settleTask().
+// Protected. Poster confirms completion → sends Stellar USDC payment to agent.
 router.patch('/:id/settle', requireWalletAuth, async (req, res) => {
   try {
     const { ipfs_cid, tx_hash, winning_bid_id } = req.body
@@ -141,6 +146,38 @@ router.patch('/:id/settle', requireWalletAuth, async (req, res) => {
       return res.status(400).json({ error: `Cannot settle task with status: ${task.status}` })
     }
 
+    // Get winning bid and agent's Stellar wallet
+    const bid = await queryOne('SELECT * FROM bids WHERE id = $1', [winning_bid_id])
+    if (!bid) return res.status(404).json({ error: 'Bid not found' })
+
+    const agent = await queryOne('SELECT stellar_pub FROM agents WHERE wallet = $1', [bid.bidder_wallet])
+    if (!agent?.stellar_pub) {
+      return res.status(400).json({ error: 'Agent has no Stellar wallet' })
+    }
+
+    // Calculate split (80% agent, 20% platform)
+    const platformFee = BigInt(task.budget_wei) * 2000n / 10000n
+    const agentPayout = BigInt(task.budget_wei) - platformFee
+
+    // Settle on Soroban contract (releases escrow)
+    const sorobanResult = await settleOnChain(
+      process.env.STELLAR_SECRET_KEY,
+      task.chain_task_id,
+      process.env.STELLAR_PUBLIC_KEY,
+      2000
+    )
+
+    // Send Stellar payment to agent
+    const paymentResult = await sendPayment(
+      process.env.STELLAR_SECRET_KEY,
+      agent.stellar_pub,
+      agentPayout.toString()
+    )
+
+    if (!paymentResult.success) {
+      return res.status(500).json({ error: 'Stellar payment failed: ' + paymentResult.error })
+    }
+
     // Mark task complete
     const updated = await queryOne(`
       UPDATE tasks
@@ -150,38 +187,43 @@ router.patch('/:id/settle', requireWalletAuth, async (req, res) => {
     `, [ipfs_cid, winning_bid_id, task.id])
 
     // Mark winning bid as paid
-    if (winning_bid_id) {
-      await query(
-        `UPDATE bids SET status = 'paid', tx_hash = $1 WHERE id = $2`,
-        [tx_hash ?? null, winning_bid_id]
-      )
-      // Mark other bids on this task as outbid
-      await query(
-        `UPDATE bids SET status = 'outbid' WHERE task_id = $1 AND id != $2 AND status = 'pending'`,
-        [task.id, winning_bid_id]
-      )
-      // Update bidder agent stats
-      const bid = await queryOne('SELECT * FROM bids WHERE id = $1', [winning_bid_id])
-      if (bid) {
-        await query(`
-          UPDATE agents
-          SET tasks_done = tasks_done + 1, total_earned = total_earned + $1
-          WHERE wallet = $2
-        `, [bid.amount_wei, bid.bidder_wallet])
-      }
-    }
+    await query(
+      `UPDATE bids SET status = 'paid', tx_hash = $1 WHERE id = $2`,
+      [paymentResult.txHash, winning_bid_id]
+    )
 
-    // Log settlement event
+    // Mark other bids as outbid
+    await query(
+      `UPDATE bids SET status = 'outbid' WHERE task_id = $1 AND id != $2 AND status = 'pending'`,
+      [task.id, winning_bid_id]
+    )
+
+    // Update agent stats
     await query(`
-      INSERT INTO transactions (type, task_id, bid_id, tx_hash, meta)
-      VALUES ('task_settled', $1, $2, $3, $4)
-    `, [task.id, winning_bid_id ?? null, tx_hash ?? null,
-        JSON.stringify({ ipfs_cid })])
+      UPDATE agents
+      SET tasks_done = tasks_done + 1, total_earned = total_earned + $1
+      WHERE wallet = $2
+    `, [agentPayout, bid.bidder_wallet])
 
-    res.json({ task: updated })
+    // Log settlement
+    await query(`
+      INSERT INTO transactions (type, task_id, bid_id, from_wallet, to_wallet, amount_wei, tx_hash, meta)
+      VALUES ('task_settled', $1, $2, $3, $4, $5, $6, $7)
+    `, [task.id, winning_bid_id, req.wallet, agent.stellar_pub, agentPayout, paymentResult.txHash,
+        JSON.stringify({ ipfs_cid, stellarTx: true })])
+
+    res.json({
+      task: updated,
+      payment: {
+        agent_payout: agentPayout.toString(),
+        platform_fee: platformFee.toString(),
+        tx_hash: paymentResult.txHash,
+        asset: paymentResult.asset,
+      }
+    })
   } catch (err) {
     console.error('[PATCH /tasks/:id/settle]', err)
-    res.status(500).json({ error: 'Failed to settle task' })
+    res.status(500).json({ error: 'Failed to settle task: ' + err.message })
   }
 })
 

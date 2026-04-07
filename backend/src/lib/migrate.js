@@ -12,7 +12,7 @@ const SCHEMA = `
 -- rep_score is cached from ERC-8004 and refreshed on each interaction.
 CREATE TABLE IF NOT EXISTS agents (
   id            SERIAL PRIMARY KEY,
-  wallet        VARCHAR(42)  NOT NULL UNIQUE,   -- checksummed Celo address
+  wallet        VARCHAR(56)  NOT NULL UNIQUE,   -- Stellar public key (G...)
   name          VARCHAR(100),                   -- optional display name
   specialty     VARCHAR(50),                    -- data_collection | code_review | content_gen | defi_ops
   rep_score     INTEGER      NOT NULL DEFAULT 0,
@@ -20,6 +20,8 @@ CREATE TABLE IF NOT EXISTS agents (
   total_earned  BIGINT       NOT NULL DEFAULT 0, -- in cUSD wei
   is_online     BOOLEAN      NOT NULL DEFAULT FALSE,
   last_seen     TIMESTAMPTZ,
+  stellar_pub   VARCHAR(56),                    -- Stellar public key
+  stellar_secret  TEXT,                         -- Stellar secret key (encrypt in prod)
   created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 

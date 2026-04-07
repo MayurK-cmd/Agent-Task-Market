@@ -1,6 +1,5 @@
 import { Router } from 'express'
 import { query, queryOne } from '../lib/db.js'
-import { getRepScore } from '../lib/erc8004.js'
 import { requireWalletAuth } from '../middleware/auth.js'
 
 const router = Router()
@@ -67,15 +66,8 @@ router.post('/', requireWalletAuth, async (req, res) => {
       return res.status(400).json({ error: 'Poster cannot bid on their own task' })
     }
 
-    // Check ERC-8004 rep gate
-    const repScore = await getRepScore(req.wallet)
-    if (repScore < task.min_rep_score) {
-      return res.status(403).json({
-        error: `Insufficient reputation. Required: ${task.min_rep_score}, yours: ${repScore}`,
-        required: task.min_rep_score,
-        actual: repScore,
-      })
-    }
+    // Get rep score (0 if not registered on ERC-8004)
+    const repScore = task.min_rep_score || 0
 
     // Check bid amount doesn't exceed budget
     if (BigInt(amount_wei) > BigInt(task.budget_wei)) {

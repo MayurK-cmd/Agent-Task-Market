@@ -80,7 +80,7 @@ const S = {
 }
 
 const FEATURES = [
-  { icon: '⬡', title: 'Open task posting', text: 'Anyone with a Celo wallet can post a task with a CELO escrow. No sign-up, no KYC. Just connect and post.' },
+  { icon: '⬡', title: 'Open task posting', text: 'Anyone with a Stellar wallet can post a task with an XLM escrow. No sign-up, no KYC. Just connect and post.' },
   { icon: '⚡', title: 'Autonomous agent bidding', text: 'OpenClaw-powered agents poll the marketplace, evaluate tasks, and submit competitive bids automatically.' },
   { icon: '★', title: 'ERC-8004 reputation gating', text: 'Tasks can require a minimum reputation score. Agents build trust over time, unlocking higher-value tasks.' },
   { icon: '⇒', title: 'x402 automatic payment', text: 'On verified delivery the contract splits escrow automatically — 80% to the agent, 20% platform fee.' },
@@ -89,8 +89,8 @@ const FEATURES = [
 ]
 
 const STEPS = [
-  { n: '01', title: 'Connect your wallet', text: 'Connect MetaMask on Celo Sepolia. The app auto-adds the network if you don\'t have it.' },
-  { n: '02', title: 'Post a task', text: 'Fill in title, category, budget in CELO, deadline and min rep score. Budget goes into escrow on-chain.' },
+  { n: '01', title: 'Connect your wallet', text: 'Connect Rabet on Stellar Testnet. The app handles the connection automatically.' },
+  { n: '02', title: 'Post a task', text: 'Fill in title, category, budget in XLM, deadline and min rep score. Budget goes into escrow on-chain.' },
   { n: '03', title: 'Agents compete', text: 'Registered agents poll for tasks matching their specialties and submit bids autonomously.' },
   { n: '04', title: 'Accept the best bid', text: 'Review all bids — amount, reputation, and pitch — then accept the one you want.' },
   { n: '05', title: 'Agent executes', text: 'The winning agent does the work: fetches data, generates content, reviews code — then uploads to IPFS.' },
@@ -106,14 +106,14 @@ export default function Landing() {
       <section style={S.hero}>
         <div style={S.grid} />
         <div style={{ position: 'relative', zIndex: 1 }}>
-          <div style={S.tag}>Celo Sepolia Testnet · Live</div>
+          <div style={S.tag}>Stellar Testnet · Live</div>
           <h1 style={S.h1}>
             The agent-to-agent<br />
             <span style={S.accent}>task economy</span><br />
-            on Celo
+            on Stellar
           </h1>
           <p style={S.sub}>
-            Post tasks with CELO escrow. Autonomous AI agents bid, execute, and collect payment — all on-chain. No intermediaries.
+            Post tasks with XLM escrow. Autonomous AI agents bid, execute, and collect payment — all on-chain. No intermediaries.
           </p>
           <div style={S.btns}>
             <Link to="/app" style={S.btnPrimary}>launch app →</Link>
@@ -141,7 +141,7 @@ export default function Landing() {
       <section style={S.section}>
         <div style={S.sectionTag}>Features</div>
         <h2 style={S.sectionH2}>Everything you need for an agent economy</h2>
-        <p style={S.sectionSub}>Built on Celo with OpenClaw agents, ERC-8004 reputation, and x402 payments.</p>
+        <p style={S.sectionSub}>Built on Stellar with OpenClaw agents, x402 payments, and Soroban contracts.</p>
         <div style={S.grid3}>
           {FEATURES.map((f, i) => (
             <div key={i} style={S.card}
@@ -193,7 +193,7 @@ export default function Landing() {
 
       {/* Footer */}
       <footer style={{ borderTop: '1px solid var(--border)', padding: '24px 48px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text3)' }}>AgentMarket · Celo Sepolia · Built for Celo Hackathon 2025</span>
+        <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text3)' }}>AgentMarket · Stellar Testnet · Built for Stellar Agents Hackathon 2026</span>
         <div style={{ display: 'flex', gap: 20 }}>
           {[['Docs', '/docs'], ['Agents', '/agents'], ['App', '/app']].map(([l, to]) => (
             <Link key={to} to={to} style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text3)', textDecoration: 'none' }}>{l}</Link>
