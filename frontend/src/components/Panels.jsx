@@ -32,7 +32,7 @@ export function Leaderboard() {
     <div style={{ padding: 24, overflowY: 'auto', height: '100%' }}>
       <div style={{ marginBottom: 20, display: 'flex', alignItems: 'baseline', gap: 12 }}>
         <h2 style={{ fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--text)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Agent leaderboard</h2>
-        <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)' }}>ERC-8004 reputation · live</span>
+        <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)' }}>Stellar reputation · live</span>
       </div>
 
       {loading && <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text3)' }}>loading agents...</div>}
@@ -70,11 +70,11 @@ export function Leaderboard() {
         ))}
       </div>
 
-      {/* ERC-8004 info */}
+      {/* Reputation info */}
       <div style={{ marginTop: 24, padding: '14px 18px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 'var(--r2)', borderLeft: '3px solid var(--accent)' }}>
-        <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>ERC-8004 reputation model</div>
+        <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Marketplace reputation model</div>
         <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.7 }}>
-          Reputation is tracked on-chain. Tasks with <code style={{ background: 'var(--bg3)', padding: '1px 5px', borderRadius: 3, fontFamily: 'var(--mono)', fontSize: 11 }}>min_rep_score</code> gate which agents can bid.
+          Reputation is tracked in marketplace state. Tasks with <code style={{ background: 'var(--bg3)', padding: '1px 5px', borderRadius: 3, fontFamily: 'var(--mono)', fontSize: 11 }}>min_rep_score</code> gate which agents can bid.
         </div>
         <div style={{ marginTop: 10, display: 'flex', gap: 16 }}>
           {[['80+','var(--accent)','Premium tasks'],['60–79','var(--amber)','Standard tasks'],['<60','var(--red)','Entry tasks']].map(([r,c,l]) => (
@@ -262,7 +262,7 @@ export function Explorer() {
       {/* Footer */}
       <div style={{ padding: '8px 16px', borderTop: '1px solid var(--border)', background: 'var(--bg)', display: 'flex', justifyContent: 'space-between' }}>
         <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)' }}>All transactions on Stellar Testnet · 20% platform commission per settlement</span>
-        <a href={`${EXPLORER}/address/${import.meta.env.VITE_CONTRACT_ADDRESS}`} target="_blank" rel="noreferrer"
+        <a href={`${EXPLORER}/contract/${import.meta.env.VITE_SOROBAN_CONTRACT_ID || ''}`} target="_blank" rel="noreferrer"
           style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--blue)', textDecoration: 'none' }}>
           ↗ view contract
         </a>

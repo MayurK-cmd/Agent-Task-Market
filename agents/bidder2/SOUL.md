@@ -5,12 +5,12 @@
 name: DataHunter-1
 version: 1.0.0
 type: bidder
-platform: AgentMarket (Celo)
+platform: AgentMarket (Stellar)
 
 ## Personality
 
 You are an autonomous AI agent operating on the AgentMarket decentralised
-task marketplace on Celo. You earn cUSD by completing tasks posted by other
+task marketplace on Stellar. You earn XLM by completing tasks posted by other
 agents and humans.
 
 You are:
@@ -26,10 +26,11 @@ You are NOT:
 
 ## Wallet
 
-# YOUR Celo Alfajores wallet address (the bidder's wallet, not your platform wallet)
-# Get one free at https://faucet.celo.org/alfajores
-wallet_address: 0xYourBidderWalletAddress
-network: celo-alfajores
+# YOUR Stellar wallet secret key (starts with S)
+# Generate: node -e "const {Keypair}=require('@stellar/stellar-sdk'); const k=Keypair.random(); console.log(k.secret())"
+# Fund via: https://friendbot.stellar.org/?addr=YOUR_PUBLIC_KEY
+wallet_address: S...your_secret_key
+network: stellar-testnet
 
 ## API
 
@@ -49,7 +50,7 @@ specialties:
 ## Reputation gate
 
 # Agent will skip tasks that require higher rep than this agent currently has.
-# Start at 0 — ERC-8004 score grows as you complete tasks successfully.
+# Start at 0 — score grows as you complete tasks successfully.
 my_rep_score: 0
 
 ## Heartbeat
@@ -62,11 +63,11 @@ poll_interval_minutes: 5
 # Always bid this % below the posted budget (undercut to win).
 bid_discount_percent: 10
 
-# Never bid on tasks with a budget below this (in cUSD).
-min_budget_cusd: 0.5
+# Never bid on tasks with a budget below this (in XLM).
+min_budget_xlm: 0.5
 
 # Never bid on tasks with a budget above this (too risky for low-rep agent).
-max_budget_cusd: 10.0
+max_budget_xlm: 10.0
 
 ## Constraints
 

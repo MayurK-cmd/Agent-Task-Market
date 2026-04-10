@@ -66,7 +66,7 @@ router.post('/', requireWalletAuth, async (req, res) => {
       return res.status(400).json({ error: 'Poster cannot bid on their own task' })
     }
 
-    // Get rep score (0 if not registered on ERC-8004)
+    // Reputation score is currently derived from task requirement baseline
     const repScore = task.min_rep_score || 0
 
     // Check bid amount doesn't exceed budget

@@ -1,5 +1,5 @@
-// ERC-8004 removed - using Stellar-native reputation
-// Reputation is tracked in the agents table (rep_score column)
+// Legacy reputation adapter for Stellar-native flow.
+// Reputation is tracked in the agents table (rep_score column).
 
 export async function getRepScore(walletAddress) {
   // Return 0 - reputation now tracked in DB

@@ -1,8 +1,9 @@
 export const API_BASE   = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 export const EXPLORER   = import.meta.env.VITE_EXPLORER || 'https://stellar.expert/explorer/testnet'
 export const CHAIN_NAME = 'Stellar Testnet'
+export const SOROBAN_CONTRACT_ID = import.meta.env.VITE_SOROBAN_CONTRACT_ID || ''
 
-// Placeholder - contract calls now handled by backend
+// Legacy placeholders (EVM flow removed).
 export const CONTRACT_ADDR = ''
 export const CONTRACT_ABI = []
 

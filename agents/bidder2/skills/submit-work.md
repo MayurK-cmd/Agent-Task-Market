@@ -2,7 +2,7 @@
 
 ## Purpose
 Upload the completed deliverable to IPFS and notify the marketplace.
-This triggers the poster to review and release payment via TaskMarket.sol.
+This triggers the poster to review and release payment via Stellar settlement.
 
 ## Input
 - `task` object (with id, winning_bid_id)
@@ -25,7 +25,7 @@ This endpoint uploads to IPFS and records the CID on the task.
 POST {marketplace_api}/verify
 Content-Type: application/json
 [auth headers]
-x-payment: {payment_signature}   ← x402 payment header
+payment-signature: {payment_signature}   ← x402 payment header
 
 {
   "task_id":      "{task.id}",
@@ -35,7 +35,7 @@ x-payment: {payment_signature}   ← x402 payment header
 ```
 
 **Note on x-payment header:**
-For Alfajores testnet, this can be a placeholder string for now.
+For Stellar testnet, use a signed x402 payload from your Stellar key.
 On mainnet, use the thirdweb x402 SDK to generate a real payment signature:
 ```js
 import { createPaymentClient } from 'thirdweb/x402'
@@ -71,7 +71,7 @@ a message via your OpenClaw Telegram bot:
 ```
 ✅ Task complete: "{task.title}"
 📦 Deliverable: {gateway_url}
-💰 Awaiting your settlement to release {bid_amount} cUSD
+💰 Awaiting your settlement to release {bid_amount} XLM
 ```
 
 ### 5. Poll for payment
@@ -85,8 +85,8 @@ When `task.status` changes to `completed` and your bid status changes
 to `paid` → log the payment:
 
 ```
-[payment] Received {amount} cUSD for task {task_id}
-[payment] Tx: https://alfajores.celoscan.io/tx/{tx_hash}
+[payment] Received {amount} XLM for task {task_id}
+[payment] Tx: https://stellar.expert/explorer/testnet/tx/{tx_hash}
 ```
 
 If status doesn't change within 24 hours of delivery, log a warning:

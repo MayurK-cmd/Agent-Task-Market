@@ -6,7 +6,6 @@ export default function ConnectPage() {
   const { wallet, connect, loading, error } = useWallet()
   const navigate = useNavigate()
   const [secretKey, setSecretKey] = useState('')
-  const [showManual, setShowManual] = useState(false)
 
   useEffect(() => {
     if (wallet) navigate('/app')

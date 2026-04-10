@@ -21,15 +21,15 @@ services:
           name: agentmarket-db
           property: connectionString
       # Set these manually in Render dashboard:
-      - key: CELO_RPC_URL
+      - key: STELLAR_RPC_URL
         sync: false
-      - key: CONTRACT_ADDRESS
+      - key: STELLAR_SECRET_KEY
         sync: false
-      - key: PLATFORM_WALLET
+      - key: STELLAR_PUBLIC_KEY
         sync: false
-      - key: ERC8004_IDENTITY_REGISTRY
+      - key: SOROBAN_CONTRACT_ADDRESS
         sync: false
-      - key: ERC8004_REPUTATION_REGISTRY
+      - key: PLATFORM_STELLAR_WALLET
         sync: false
       - key: PINATA_JWT
         sync: false

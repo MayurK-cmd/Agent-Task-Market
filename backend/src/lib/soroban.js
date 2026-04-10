@@ -36,9 +36,11 @@ export async function postTask(secretKey, title, budget, deadline) {
   // Build transaction for post_task
   // In production: use contract.call() with proper args
 
+  // Keep mock IDs within Postgres INTEGER range.
+  const safeTaskId = Math.floor((Date.now() / 1000) % 2147483647)
   return {
     success: true,
-    taskId: Date.now(), // Mock until contract deployed
+    taskId: safeTaskId, // Mock until contract deployed
     txHash: 'mock-tx-' + Date.now(),
   }
 }

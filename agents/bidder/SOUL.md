@@ -50,7 +50,7 @@ specialties:
 ## Reputation gate
 
 # Agent will skip tasks that require higher rep than this agent currently has.
-# Start at 0 — ERC-8004 score grows as you complete tasks successfully.
+# Start at 0 — score grows as you complete tasks successfully.
 my_rep_score: 0
 
 ## Heartbeat
@@ -63,11 +63,11 @@ poll_interval_minutes: 5
 # Always bid this % below the posted budget (undercut to win).
 bid_discount_percent: 10
 
-# Never bid on tasks with a budget below this (in cUSD).
-min_budget_cusd: 0.5
+# Never bid on tasks with a budget below this (in XLM).
+min_budget_xlm: 0.5
 
 # Never bid on tasks with a budget above this (too risky for low-rep agent).
-max_budget_cusd: 10.0
+max_budget_xlm: 10.0
 
 ## Constraints
 

@@ -84,7 +84,6 @@ function ResultModal({ cid, title, onClose }) {
 function DeliverableView({ data }) {
   // Unwrap IPFS envelope — agent wraps payload in { taskId, agentWallet, content, ... }
   const inner   = data.content || data
-  const content = inner.data ? inner : (inner.content || inner)
 
   // Tweet threads
   if (inner.content_type === 'generated' || inner.content_type === 'tweet_thread') {
@@ -255,7 +254,7 @@ function BidCard({ bid, rank, isWinner, canAccept, loading, onAccept }) {
 }
 
 // ── Task row with expanded panel ──────────────────────────────────────────────
-function TaskRow({ task, index, wallet, authHeaders, contract, onRefetch }) {
+function TaskRow({ task, index, wallet, authHeaders, onRefetch }) {
   const [expanded, setExpanded] = useState(false)
   const [loading,  setLoading]  = useState(false)
   const [msg,      setMsg]      = useState(null)
@@ -266,9 +265,9 @@ function TaskRow({ task, index, wallet, authHeaders, contract, onRefetch }) {
   // Auto-fill CID from task when in_progress and agent has submitted
   useEffect(() => {
     if (task.ipfs_cid && !ipfsCid) setIpfsCid(task.ipfs_cid)
-  }, [task.ipfs_cid])
+  }, [task.ipfs_cid, ipfsCid])
 
-  const isMyTask  = wallet && task.poster_wallet?.toLowerCase() === wallet.address?.toLowerCase()
+  const isMyTask  = wallet && task.poster_wallet?.toLowerCase() === wallet.publicKey?.toLowerCase()
   const canAccept = isMyTask && task.status === 'bidding'
   const canSettle = isMyTask && task.status === 'in_progress'
   const hasResult = !!task.ipfs_cid
@@ -281,52 +280,21 @@ function TaskRow({ task, index, wallet, authHeaders, contract, onRefetch }) {
   })
 
   async function acceptBid(bidId) {
-    if (!task.chain_task_id) return setMsg({ ok: false, text: 'No on-chain task ID — post tasks via the frontend form to enable on-chain actions.' })
-    if (!contract) return setMsg({ ok: false, text: 'Contract not connected — check VITE_CONTRACT_ADDRESS in .env' })
-
-    // Find the bid to get its on-chain bid id
     const bid = bids.find(b => b.id === bidId)
     if (!bid) return setMsg({ ok: false, text: 'Bid not found' })
 
     setLoading(true); setMsg(null)
     try {
-      // Step 1: Find the on-chain bid id by checking contract events
-      // We stored chain_bid_id when submitting — fall back to scanning bids
-      // For now use bid index position as on-chain bid id (matches submitBid counter)
-      setMsg({ ok: true, text: 'Confirm the transaction in MetaMask...' })
-
-      // Get all bid ids for this task from contract to find matching bid
-      const taskBids  = await contract.getTaskBids(task.chain_task_id)
-      // Find the bid that matches this bidder wallet
-      let chainBidId  = null
-      for (const cBidId of taskBids) {
-        const cBid = await contract.getBid(cBidId)
-        if (cBid.bidder.toLowerCase() === bid.bidder_wallet.toLowerCase()) {
-          chainBidId = cBidId
-          break
-        }
-      }
-      if (!chainBidId) throw new Error('Could not find matching on-chain bid — agent may not have bid on-chain yet')
-
-      // Step 2: Call contract.acceptBid()
-      const tx      = await contract.acceptBid(chainBidId)
-      setMsg({ ok: true, text: 'Waiting for confirmation...' })
-      const receipt = await tx.wait()
-
-      // Step 3: Sync DB
+      setMsg({ ok: true, text: 'Accepting bid on Stellar backend...' })
       const headers = await authHeaders()
       const res  = await fetch(`${API_BASE}/bids/${bidId}/accept`, { method: 'POST', headers })
       const body = await res.json()
       if (!res.ok) throw new Error(body.error)
 
-      setMsg({ ok: true, text: `Bid accepted on-chain! Agent will start executing shortly. Tx: ${receipt.hash.slice(0,10)}...` })
+      setMsg({ ok: true, text: 'Bid accepted. Agent will start executing shortly.' })
       onRefetch()
     } catch (err) {
-      if (err.code === 4001) {
-        setMsg({ ok: false, text: 'Transaction rejected in MetaMask.' })
-      } else {
-        setMsg({ ok: false, text: err.message })
-      }
+      setMsg({ ok: false, text: err.message })
     } finally { setLoading(false) }
   }
 
@@ -334,38 +302,25 @@ function TaskRow({ task, index, wallet, authHeaders, contract, onRefetch }) {
     if (!ipfsCid) return setMsg({ ok: false, text: 'No IPFS CID yet — wait for agent to submit deliverable' })
     const winningBid = bids.find(b => b.status === 'winning')
     if (!winningBid) return setMsg({ ok: false, text: 'No winning bid found' })
-    if (!task.chain_task_id) return setMsg({ ok: false, text: 'No on-chain task ID — was this task posted via the frontend form?' })
-    if (!contract) return setMsg({ ok: false, text: 'Contract not connected — check VITE_CONTRACT_ADDRESS in .env' })
-
     setLoading(true); setMsg(null)
     try {
-      // Step 1: Call TaskMarket.sol::settleTask() — this does the real 80/20 split on-chain
-      setMsg({ ok: true, text: 'Confirm the transaction in MetaMask...' })
-      const tx      = await contract.settleTask(task.chain_task_id, ipfsCid)
-      setMsg({ ok: true, text: 'Transaction submitted — waiting for confirmation...' })
-      const receipt = await tx.wait()
-
-      // Step 2: Sync DB state
+      setMsg({ ok: true, text: 'Settling task and sending Stellar payment...' })
       const headers = await authHeaders()
       const res  = await fetch(`${API_BASE}/tasks/${task.id}/settle`, {
         method: 'PATCH', headers,
         body: JSON.stringify({
           ipfs_cid:        ipfsCid,
           winning_bid_id:  winningBid.id,
-          tx_hash:         receipt.hash,
         }),
       })
       const body = await res.json()
       if (!res.ok) throw new Error(body.error)
 
-      setMsg({ ok: true, text: `Settled on Stellar! ${(parseFloat(cusd(task.budget_wei)) * 0.8).toFixed(4)} XLM to agent · 20% to you. Tx: ${payment.tx_hash.slice(0,10)}...` })
+      const txHash = body.payment?.tx_hash || 'n/a'
+      setMsg({ ok: true, text: `Settled on Stellar. Agent payout sent. Tx: ${txHash.slice(0, 12)}...` })
       onRefetch()
     } catch (err) {
-      if (err.code === 4001) {
-        setMsg({ ok: false, text: 'Transaction rejected in MetaMask.' })
-      } else {
-        setMsg({ ok: false, text: err.message })
-      }
+      setMsg({ ok: false, text: err.message })
     } finally { setLoading(false) }
   }
 
@@ -534,7 +489,6 @@ export default function TaskFeed() {
   const [showPost, setShowPost] = useState(false)
   const { tasks, loading, refetch } = useTasks(filter)
   const { wallet, authHeaders }     = useWallet()
-  const contract                    = useContract(wallet?.signer)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -588,7 +542,7 @@ export default function TaskFeed() {
           </div>
         )}
         {tasks.map((t, i) => (
-          <TaskRow key={t.id} task={t} index={i} wallet={wallet} authHeaders={authHeaders} contract={contract} onRefetch={refetch} />
+          <TaskRow key={t.id} task={t} index={i} wallet={wallet} authHeaders={authHeaders} onRefetch={refetch} />
         ))}
       </div>
 

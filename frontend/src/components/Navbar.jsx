@@ -66,7 +66,7 @@ export default function Navbar() {
             }}>
               <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)', animation: 'pulse-dot 2s infinite' }} />
               <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text)' }}>
-                {shortAddr(wallet.address)}
+                {shortAddr(wallet.publicKey)}
               </span>
             </div>
             <button onClick={disconnect} style={{

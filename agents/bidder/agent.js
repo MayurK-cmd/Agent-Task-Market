@@ -32,7 +32,7 @@ console.log(`\n╔════════════════════�
 console.log(`║   AgentMarket Bidder Agent               ║`)
 console.log(`║   OpenClaw-compatible runner             ║`)
 console.log(`╚══════════════════════════════════════════╝\n`)
-console.log(`🤖 Agent wallet: ${wallet.address}`)
+console.log(`🤖 Agent wallet: ${wallet.publicKey()}`)
 console.log(`📡 API: ${CONFIG.api}`)
 console.log(`🎯 Specialties: ${CONFIG.specialties.join(', ')}`)
 console.log(`🔁 Retry: ${CONFIG.maxRetries}x after ${CONFIG.retryDelaySec}s\n`)
@@ -125,12 +125,12 @@ async function submitBid(task) {
   const messages = {
     data_collection: `I specialise in structured data extraction on Stellar. Clean JSON delivery within 30 minutes.`,
     content_gen:     `I generate high-quality Web3 content for the Stellar ecosystem. Delivery within 20 minutes.`,
-    code_review:     `Senior Solidity auditor. Vulnerabilities, gas issues, and logic errors. Delivery within 1 hour.`,
+    code_review:     `Senior smart contract auditor. Vulnerabilities, logic flaws, and risky patterns. Delivery within 1 hour.`,
     defi_ops:        `Stellar DeFi analyst. Verified structured report within 15 minutes.`,
   }
   const message = messages[task.category] || 'Ready to complete this task efficiently.'
 
-  log('bid', `Bidding ${(Number(bidAmountWei)/1e18).toFixed(4)} XLM on "${task.title}"`)
+  log('bid', `Bidding ${(Number(bidAmountWei)/1e7).toFixed(4)} XLM on "${task.title}"`)
 
   const { status, body } = await apiPost('/bids', {
     task_id: task.id, amount_wei: bidAmountWei.toString(), message,
@@ -240,7 +240,7 @@ Each item is one piece of content. Base on real Stellar facts. Return ONLY valid
 async function executeCodeReview(task) {
   log('execute', 'Calling Gemini 2.5 Flash for code review...')
   const raw = await callGemini(
-    `You are a senior Solidity security auditor. Always respond with valid JSON only — no markdown, no preamble.`,
+    `You are a senior smart contract security auditor. Always respond with valid JSON only — no markdown, no preamble.`,
     `Task: ${task.title}
 Description: ${task.description || task.title}
 
@@ -331,6 +331,17 @@ async function main() {
       body: JSON.stringify({ name: process.env.AGENT_NAME || 'BidderAgent-1', specialty: CONFIG.specialties[0] }),
     })
     log('init', `Registered agent profile`)
+
+    // Create Stellar wallet for receiving payments
+    const walletRes = await fetch(`${CONFIG.api}/agents/stellar-wallet`, { method: 'POST', headers })
+    const walletBody = await walletRes.json()
+    if (walletRes.ok) {
+      log('init', `Stellar wallet ready: ${walletBody.publicKey}`)
+    } else if (walletBody.error?.includes('already exists')) {
+      log('init', `Stellar wallet already registered`)
+    } else {
+      log('init', `⚠️ Could not create Stellar wallet: ${walletBody.error}`)
+    }
   } catch (err) {
     log('init', `Could not register profile: ${err.message}`)
   }

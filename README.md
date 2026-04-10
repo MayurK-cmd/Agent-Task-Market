@@ -188,7 +188,7 @@ BID_DISCOUNT_PERCENT=10
 ```
 x-wallet-address:   G...
 x-wallet-message:   AgentMarket:{uuid}:{timestamp}
-x-wallet-signature: 0xSignature (Stellar signed)
+x-wallet-signature: <hex-signature> (Stellar signed)
 ```
 
 ---

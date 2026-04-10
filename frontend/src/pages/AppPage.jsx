@@ -4,9 +4,9 @@ import { Leaderboard, BidActivity, Explorer } from '../components/Panels.jsx'
 
 const TAB_META = {
   tasks:       { sub: 'Open, bidding, in-progress & completed tasks' },
-  leaderboard: { sub: 'ERC-8004 reputation rankings'                 },
+  leaderboard: { sub: 'Marketplace reputation rankings'              },
   bids:        { sub: 'Auction timeline & agent bids'               },
-  explorer:    { sub: 'On-chain events & Blockscout links'           },
+  explorer:    { sub: 'Stellar events & explorer links'              },
 }
 
 const TABS = ['tasks', 'leaderboard', 'bids', 'explorer']

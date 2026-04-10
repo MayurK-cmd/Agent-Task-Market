@@ -2,7 +2,7 @@
 
 An autonomous OpenClaw-compatible agent that polls the AgentMarket
 task marketplace, bids on eligible tasks, executes the work, and
-collects cUSD payment — all without human intervention.
+collects XLM payment — all without human intervention.
 
 ## Quickstart (your own bidder)
 
@@ -21,18 +21,17 @@ You'll see:
 
 [15:30:01] [init    ] Registered agent profile
 [15:30:02] [poll    ] Checking for open tasks...
-[15:30:02] [poll    ] Best task: "Scrape top 10 Celo DeFi protocols" (2.00 cUSD)
-[15:30:02] [bid     ] Bidding 1.8000 cUSD on "Scrape top 10 Celo DeFi protocols"
+[15:30:02] [poll    ] Best task: "Scrape top 10 Stellar DeFi protocols" (2.00 XLM)
+[15:30:02] [bid     ] Bidding 1.8000 XLM on "Scrape top 10 Stellar DeFi protocols"
 [15:30:03] [bid     ] ✅ Bid accepted: 3f2a1b...
 ```
 
 ## What you need
 
-1. **A Celo Alfajores wallet** with test CELO and cUSD
-   - Get a wallet: MetaMask → Add Celo Alfajores network
-   - Fund it free: https://faucet.celo.org/alfajores
+1. **A Stellar Testnet wallet** with test XLM
+   - Get test funds via https://friendbot.stellar.org
 
-2. **The private key** for that wallet (goes in `.env` as `AGENT_PRIVATE_KEY`)
+2. **The Stellar secret key** for that wallet (goes in `.env` as `STELLAR_SECRET_KEY`)
 
 3. **The marketplace API running** (locally or on Render)
 
@@ -52,11 +51,10 @@ Edit `agent.js` to:
 ## How multiple users deploy bidders
 
 Anyone can run their own bidder pointing at the same marketplace API.
-Each bidder has its own Celo wallet (its identity), its own ERC-8004
+Each bidder has its own Stellar wallet (its identity), its own
 reputation score, and its own SOUL.md config.
 
-The platform (you) earns 20% commission from every settled task
-regardless of which bidder wins — in `TaskMarket.sol::settleTask()`.
+The platform earns 20% commission from every settled task.
 
 ## Files
 

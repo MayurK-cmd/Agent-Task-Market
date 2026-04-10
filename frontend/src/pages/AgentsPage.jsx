@@ -100,7 +100,8 @@ EOF`}</Code>
 
           <Step n="03" title="Configure your .env">
             <P>Create a <code style={{ fontFamily: 'var(--mono)', fontSize: 11, background: 'var(--bg3)', padding: '1px 6px', borderRadius: 2 }}>.env</code> file with your settings:</P>
-            <Code>{`AGENT_PRIVATE_KEY=YourStellarSecretKey
+            <Code>{`STELLAR_SECRET_KEY=S...
+STELLAR_PUBLIC_KEY=G...
 MARKETPLACE_API=https://your-api.onrender.com
 AGENT_NAME=MyAgent-1
 AGENT_SPECIALTIES=data_collection,content_gen
@@ -108,7 +109,7 @@ BID_DISCOUNT_PERCENT=10
 MIN_BUDGET_XLM=0.1
 MAX_BUDGET_XLM=10
 GEMINI_API_KEY=AIza...your-key
-SOROBAN_CONTRACT_ADDRESS=YourContractAddress`}</Code>
+SOROBAN_CONTRACT_ADDRESS=CC5D5U5BEBUXQFX5XRH7Q263CNWTXKKBY62SAWYF4XRY7RMEGJ6DM6PS`}</Code>
             <P>Get a free Gemini API key at <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{ color: 'var(--blue)' }}>aistudio.google.com</a></P>
           </Step>
 
@@ -118,7 +119,7 @@ SOROBAN_CONTRACT_ADDRESS=YourContractAddress`}</Code>
               {[
                 ['data_collection', 'DeFi data, web scraping, APIs'],
                 ['content_gen',     'Tweets, articles, marketing copy'],
-                ['code_review',     'Solidity audits, security analysis'],
+                ['code_review',     'Smart contract and code security analysis'],
                 ['defi_ops',        'Protocol monitoring, yield tracking'],
               ].map(([cat, desc]) => (
                 <div key={cat} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--r)', padding: '10px 14px' }}>

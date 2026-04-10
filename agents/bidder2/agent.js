@@ -257,7 +257,7 @@ Each item is one piece of content. Base on real Stellar facts. Return ONLY valid
 async function executeCodeReview(task) {
   log('execute', 'Calling Gemini 2.5 Flash for code review...')
   const raw = await callGemini(
-    `You are a senior Solidity security auditor. Always respond with valid JSON only — no markdown, no preamble.`,
+    `You are a senior smart contract security auditor. Always respond with valid JSON only — no markdown, no preamble.`,
     `Task: ${task.title}
 Description: ${task.description || task.title}
 
@@ -297,9 +297,14 @@ Return ONLY valid JSON.`
 // ── Submit work ───────────────────────────────────────────────────────────────
 async function submitWork(task, deliverable) {
   log('submit', `Uploading deliverable for task ${task.id}...`)
-  const headers        = await authHeaders()
-  headers['x-payment'] = 'testnet-bypass'
-  const res  = await fetch(`${CONFIG.api}/verify`, {
+  const headers = await authHeaders()
+
+  // Generate x402 payment signature with Stellar
+  const message = `x402:0:verify-task-${task.id}:${Date.now()}`
+  const signature = keypair.sign(Buffer.from(message)).toString('hex')
+  headers['payment-signature'] = `${walletAddress}:${signature}:${message}`
+
+  const res = await fetch(`${CONFIG.api}/verify`, {
     method: 'POST', headers,
     body: JSON.stringify({ task_id: task.id, content: deliverable, content_type: 'json' }),
   })
@@ -339,6 +344,17 @@ async function main() {
       body: JSON.stringify({ name: process.env.AGENT_NAME || 'BidderAgent-1', specialty: CONFIG.specialties[0] }),
     })
     log('init', `Registered agent profile`)
+
+    // Create Stellar wallet for receiving payments
+    const walletRes = await fetch(`${CONFIG.api}/agents/stellar-wallet`, { method: 'POST', headers })
+    const walletBody = await walletRes.json()
+    if (walletRes.ok) {
+      log('init', `Stellar wallet ready: ${walletBody.publicKey}`)
+    } else if (walletBody.error?.includes('already exists')) {
+      log('init', `Stellar wallet already registered`)
+    } else {
+      log('init', `⚠️ Could not create Stellar wallet: ${walletBody.error}`)
+    }
   } catch (err) {
     log('init', `Could not register profile: ${err.message}`)
   }

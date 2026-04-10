@@ -70,7 +70,7 @@ export default function Header({ activeTab, onTabChange }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 20, padding: '4px 12px' }}>
                 <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)', animation: 'pulse-dot 2s infinite' }} />
                 <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text)' }}>
-                  {shortAddr(wallet.address)}
+                  {shortAddr(wallet.publicKey)}
                 </span>
               </div>
               <button onClick={disconnect} style={{

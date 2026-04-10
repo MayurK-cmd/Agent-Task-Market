@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { ethers } from 'ethers'
-import { API_BASE, CONTRACT_ADDR, CONTRACT_ABI } from '../lib/config.js'
+import { API_BASE } from '../lib/config.js'
 
 // ── Generic fetcher ───────────────────────────────────────────────────────────
 async function apiFetch(path, opts = {}) {
@@ -51,7 +50,9 @@ export function useTask(taskId) {
         const data = await apiFetch(`/tasks/${taskId}`)
         setTask(data.task)
         setBids(data.bids || [])
-      } catch {}
+      } catch {
+        // Best-effort polling.
+      }
       finally { setLoading(false) }
     }
     fetch()
@@ -73,7 +74,9 @@ export function useBids(taskId = null) {
       try {
         const data = await apiFetch(path)
         setBids(data.bids || [])
-      } catch {}
+      } catch {
+        // Best-effort polling.
+      }
       finally { setLoading(false) }
     }
     fetch()
@@ -94,7 +97,9 @@ export function useAgents() {
       try {
         const data = await apiFetch('/agents')
         setAgents(data.agents || [])
-      } catch {}
+      } catch {
+        // Best-effort polling.
+      }
       finally { setLoading(false) }
     }
     fetch()
@@ -114,7 +119,9 @@ export function useStats() {
       try {
         const data = await apiFetch('/verify/stats')
         setStats(data.stats)
-      } catch {}
+      } catch {
+        // Best-effort polling.
+      }
     }
     fetch()
     const id = setInterval(fetch, 10000)
@@ -124,34 +131,17 @@ export function useStats() {
   return stats
 }
 
-// ── Contract interaction hook ─────────────────────────────────────────────────
-export function useContract(signer) {
-  if (!signer || !CONTRACT_ADDR) return null
-  return new ethers.Contract(CONTRACT_ADDR, CONTRACT_ABI, signer)
+// Legacy placeholder for previous EVM flow.
+export function useContract() {
+  return null
 }
 
-// ── Post task (on-chain + API) ────────────────────────────────────────────────
-export async function postTaskOnChain({ contract, authHeaders, formData }) {
+// ── Post task (backend + Soroban) ─────────────────────────────────────────────
+export async function postTaskOnChain({ authHeaders, formData }) {
   const { title, category, budgetEth, deadlineDate, minRepScore, description } = formData
 
-  const deadline  = Math.floor(new Date(deadlineDate).getTime() / 1000)
-  const budgetWei = ethers.parseEther(budgetEth)
-
-  // 1. Send to contract (escrow)
-  const tx      = await contract.postTask(title, category, deadline, minRepScore || 0, { value: budgetWei })
-  const receipt = await tx.wait()
-
-  // Parse taskId from event
-  const iface   = new ethers.Interface(CONTRACT_ABI)
-  let chainTaskId = null
-  for (const log of receipt.logs) {
-    try {
-      const parsed = iface.parseLog(log)
-      if (parsed?.name === 'TaskPosted') { chainTaskId = Number(parsed.args.taskId); break }
-    } catch {}
-  }
-
-  // 2. Record in API (so it shows in the feed)
+  // 1 XLM = 10^7 stroops
+  const budgetWei = BigInt(Math.round(parseFloat(budgetEth) * 1e7))
   const headers = await authHeaders()
   const res = await fetch(`${API_BASE}/tasks`, {
     method:  'POST',
@@ -161,11 +151,9 @@ export async function postTaskOnChain({ contract, authHeaders, formData }) {
       budget_wei:    budgetWei.toString(),
       deadline:      new Date(deadlineDate).toISOString(),
       min_rep_score: minRepScore || 0,
-      chain_task_id: chainTaskId,
-      tx_hash:       receipt.hash,
     }),
   })
   const body = await res.json()
   if (!res.ok) throw new Error(body.error || 'API error')
-  return { task: body.task, txHash: receipt.hash, chainTaskId }
+  return { task: body.task, txHash: body.task?.tx_hash, chainTaskId: body.task?.chain_task_id }
 }

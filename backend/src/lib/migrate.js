@@ -9,7 +9,7 @@ const SCHEMA = `
 
 -- ── Agents ────────────────────────────────────────────────────────────────────
 -- Registered agents (both posters and bidders).
--- rep_score is cached from ERC-8004 and refreshed on each interaction.
+-- rep_score is maintained by marketplace logic.
 CREATE TABLE IF NOT EXISTS agents (
   id            SERIAL PRIMARY KEY,
   wallet        VARCHAR(56)  NOT NULL UNIQUE,   -- Stellar public key (G...)
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS agents (
   specialty     VARCHAR(50),                    -- data_collection | code_review | content_gen | defi_ops
   rep_score     INTEGER      NOT NULL DEFAULT 0,
   tasks_done    INTEGER      NOT NULL DEFAULT 0,
-  total_earned  BIGINT       NOT NULL DEFAULT 0, -- in cUSD wei
+  total_earned  BIGINT       NOT NULL DEFAULT 0, -- in stroops
   is_online     BOOLEAN      NOT NULL DEFAULT FALSE,
   last_seen     TIMESTAMPTZ,
   stellar_pub   VARCHAR(56),                    -- Stellar public key
@@ -31,14 +31,14 @@ CREATE TABLE IF NOT EXISTS tasks (
   title           VARCHAR(200) NOT NULL,
   description     TEXT,
   category        VARCHAR(50)  NOT NULL,         -- matches agent specialty values
-  budget_wei      BIGINT       NOT NULL,          -- cUSD in wei (18 decimals)
+  budget_wei      BIGINT       NOT NULL,          -- XLM stroops (1 XLM = 10^7)
   deadline        TIMESTAMPTZ  NOT NULL,
-  min_rep_score   INTEGER      NOT NULL DEFAULT 0,-- ERC-8004 gate
-  poster_wallet   VARCHAR(42)  NOT NULL,
+  min_rep_score   INTEGER      NOT NULL DEFAULT 0,-- reputation gate
+  poster_wallet   VARCHAR(56)  NOT NULL,
   status          VARCHAR(20)  NOT NULL DEFAULT 'open',
     -- open | bidding | in_progress | completed | disputed | expired
   winning_bid_id  UUID,
-  chain_task_id   INTEGER,                        -- on-chain task index in TaskMarket.sol
+  chain_task_id   INTEGER,                        -- on-chain task index in Soroban contract
   tx_hash         VARCHAR(66),                    -- postTask() tx
   ipfs_cid        VARCHAR(100),                   -- deliverable CID (set on completion)
   created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
@@ -49,8 +49,8 @@ CREATE TABLE IF NOT EXISTS tasks (
 CREATE TABLE IF NOT EXISTS bids (
   id              UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
   task_id         UUID         NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-  bidder_wallet   VARCHAR(42)  NOT NULL,
-  amount_wei      BIGINT       NOT NULL,           -- bid amount in cUSD wei
+  bidder_wallet   VARCHAR(56)  NOT NULL,
+  amount_wei      BIGINT       NOT NULL,           -- bid amount in stroops
   rep_score_snap  INTEGER      NOT NULL DEFAULT 0, -- rep at time of bid (snapshot)
   message         TEXT,                            -- optional pitch from bidder agent
   status          VARCHAR(20)  NOT NULL DEFAULT 'pending',
@@ -66,8 +66,8 @@ CREATE TABLE IF NOT EXISTS transactions (
     -- task_posted | bid_submitted | task_settled | ipfs_submitted | dispute_raised
   task_id     UUID         REFERENCES tasks(id),
   bid_id      UUID         REFERENCES bids(id),
-  from_wallet VARCHAR(42),
-  to_wallet   VARCHAR(42),
+  from_wallet VARCHAR(56),
+  to_wallet   VARCHAR(56),
   amount_wei  BIGINT,
   tx_hash     VARCHAR(66),
   meta        JSONB,                               -- any extra data
@@ -93,6 +93,17 @@ DROP TRIGGER IF EXISTS tasks_updated_at ON tasks;
 CREATE TRIGGER tasks_updated_at
   BEFORE UPDATE ON tasks
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- ── Stellar address compatibility (existing DBs) ─────────────────────────────
+ALTER TABLE IF EXISTS tasks
+  ALTER COLUMN poster_wallet TYPE VARCHAR(56);
+
+ALTER TABLE IF EXISTS bids
+  ALTER COLUMN bidder_wallet TYPE VARCHAR(56);
+
+ALTER TABLE IF EXISTS transactions
+  ALTER COLUMN from_wallet TYPE VARCHAR(56),
+  ALTER COLUMN to_wallet TYPE VARCHAR(56);
 `
 
 async function migrate() {

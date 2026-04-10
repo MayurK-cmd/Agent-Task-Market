@@ -1,6 +1,47 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useCallback, useEffect } from 'react'
 
 const WalletContext = createContext(null)
+
+function normalizeSignature(value) {
+  if (!value) return null
+  if (typeof value === 'string') return value.trim()
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const normalized = normalizeSignature(item)
+      if (normalized) return normalized
+    }
+    return null
+  }
+  if (typeof value === 'object') {
+    const candidate =
+      value.signature ||
+      value.sig ||
+      value.signedMessage ||
+      value.signed_message ||
+      value.signed ||
+      value.messageSignature ||
+      value.message_signature ||
+      value.result?.signature ||
+      value.result?.sig ||
+      value.result?.signedMessage ||
+      value.result?.signed_message ||
+      value.data?.signature ||
+      value.data?.sig ||
+      value.data?.signedMessage ||
+      value.data?.signed_message ||
+      null
+    if (typeof candidate === 'string') return candidate.trim()
+
+    // Last resort: walk object values to locate a nested signature-like string.
+    for (const v of Object.values(value)) {
+      const normalized = normalizeSignature(v)
+      if (normalized) return normalized
+    }
+    return null
+  }
+  return null
+}
 
 export function WalletProvider({ children }) {
   const [wallet, setWallet] = useState(null)
@@ -39,7 +80,7 @@ export function WalletProvider({ children }) {
         })
         setLoading(false)
         return
-      } catch (err) {
+      } catch {
         setError('Invalid secret key')
         setLoading(false)
         return
@@ -59,8 +100,32 @@ export function WalletProvider({ children }) {
     try {
       // Request connection
       console.log('[Wallet] Connecting to', detected.name)
-      await detected.wallet.connect?.()
-      const publicKey = await detected.wallet.getAddress?.()
+      const connectResult = await detected.wallet.connect?.()
+      let publicKey = null
+
+      // Rabet/Freighter adapters expose different methods/return shapes.
+      if (typeof detected.wallet.getAddress === 'function') {
+        publicKey = await detected.wallet.getAddress()
+      }
+      if (!publicKey && typeof detected.wallet.getPublicKey === 'function') {
+        publicKey = await detected.wallet.getPublicKey()
+      }
+      if (!publicKey && typeof connectResult === 'string') {
+        publicKey = connectResult
+      }
+      if (!publicKey && connectResult && typeof connectResult === 'object') {
+        publicKey =
+          connectResult.address ||
+          connectResult.publicKey ||
+          connectResult.account ||
+          connectResult.result?.address ||
+          connectResult.data?.address ||
+          null
+      }
+
+      if (!publicKey) {
+        throw new Error(`Connected to ${detected.name}, but wallet did not return an address`)
+      }
       console.log('[Wallet] Connected:', publicKey)
 
       setWallet({
@@ -91,14 +156,24 @@ export function WalletProvider({ children }) {
     let signature
     if (wallet.isRabet && wallet.wallet.signMessage) {
       // Use Rabet's signMessage
-      signature = await wallet.wallet.signMessage(message)
+      let signed
+      try {
+        signed = await wallet.wallet.signMessage(message)
+      } catch {
+        // Some Rabet versions expect an object payload
+        signed = await wallet.wallet.signMessage({ message })
+      }
+      signature = normalizeSignature(signed)
+      if (!signature) {
+        throw new Error('Wallet returned an invalid signature format')
+      }
     } else {
       // Fallback: prompt for secret key
       const secretKey = prompt('Enter secret key to sign:')
       if (!secretKey) throw new Error('Signing cancelled')
       const { Keypair } = await import('@stellar/stellar-sdk')
       const keypair = Keypair.fromSecret(secretKey)
-      signature = keypair.sign(Buffer.from(message)).toString('hex')
+      signature = keypair.sign(new TextEncoder().encode(message)).toString('hex')
     }
 
     return {
@@ -115,7 +190,15 @@ export function WalletProvider({ children }) {
     if (!detected) return
     detected.wallet.isConnected?.().then(connected => {
       if (connected) {
-        detected.wallet.getAddress().then(publicKey => {
+        const getPk =
+          typeof detected.wallet.getAddress === 'function'
+            ? detected.wallet.getAddress()
+            : typeof detected.wallet.getPublicKey === 'function'
+              ? detected.wallet.getPublicKey()
+              : Promise.resolve(null)
+
+        getPk.then(publicKey => {
+          if (!publicKey) return
           setWallet({ publicKey, wallet: detected.wallet, isRabet: detected.name === 'Rabet' })
         })
       }
@@ -129,4 +212,6 @@ export function WalletProvider({ children }) {
   )
 }
 
-export const useWallet = () => useContext(WalletContext)
+export function useWallet() {
+  return useContext(WalletContext)
+}

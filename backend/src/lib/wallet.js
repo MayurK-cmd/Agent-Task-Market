@@ -13,8 +13,21 @@ import { Keypair } from '@stellar/stellar-sdk'
 export function verifyWalletSignature(wallet, message, signature) {
   try {
     const keypair = Keypair.fromPublicKey(wallet)
-    const sig = Buffer.from(signature, 'hex')
-    return keypair.verify(Buffer.from(message), sig)
+    const raw = String(signature || '').trim()
+    const messageBytes = Buffer.from(message)
+
+    // Try common formats: hex, 0x-prefixed hex, base64
+    const hex = raw.startsWith('0x') ? raw.slice(2) : raw
+    if (/^[0-9a-fA-F]+$/.test(hex) && hex.length >= 64) {
+      const sigHex = Buffer.from(hex, 'hex')
+      if (keypair.verify(messageBytes, sigHex)) return true
+    }
+
+    // Rabet/Freighter can return base64-encoded signatures in some versions.
+    const sigB64 = Buffer.from(raw, 'base64')
+    if (sigB64.length > 0 && keypair.verify(messageBytes, sigB64)) return true
+
+    return false
   } catch {
     return false
   }

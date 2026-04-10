@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useWallet }      from '../hooks/useWallet.jsx'
-import { useContract, postTaskOnChain } from '../hooks/useMarketPlace.js'
+import { postTaskOnChain } from '../hooks/useMarketPlace.js'
 import { CATEGORIES, EXPLORER }         from '../lib/config.js'
 
 const overlay = {
@@ -29,7 +29,6 @@ const STEPS = { idle: 'idle', signing: 'signing', confirming: 'confirming', done
 
 export default function PostTask({ onClose, onSuccess }) {
   const { wallet, authHeaders } = useWallet()
-  const contract = useContract(wallet?.signer)
 
   const [form, setForm] = useState({
     title: '', description: '', category: 'data_collection',
@@ -48,7 +47,6 @@ export default function PostTask({ onClose, onSuccess }) {
 
   const submit = async () => {
     if (!wallet)          return setErrMsg('Connect your wallet first')
-    if (!contract)        return setErrMsg('Contract address not configured in .env')
     if (!form.title)      return setErrMsg('Title is required')
     if (!form.budgetEth)  return setErrMsg('Budget is required')
     if (!form.deadlineDate) return setErrMsg('Deadline is required')
@@ -58,12 +56,12 @@ export default function PostTask({ onClose, onSuccess }) {
     setStep(STEPS.signing)
 
     try {
-      // Step 1: MetaMask signature for API auth
-      const headers = await authHeaders()
+      // Step 1: Wallet signature for API auth
+      await authHeaders()
       setStep(STEPS.confirming)
 
-      // Step 2: On-chain tx + API record
-      const result = await postTaskOnChain({ contract, authHeaders, formData: form })
+      // Step 2: Backend creates task + Soroban call
+      const result = await postTaskOnChain({ authHeaders, formData: form })
       setTxHash(result.txHash)
       setStep(STEPS.done)
       setTimeout(() => { onSuccess?.(); onClose() }, 2000)
@@ -169,8 +167,8 @@ export default function PostTask({ onClose, onSuccess }) {
             {step !== STEPS.idle && step !== STEPS.error && (
               <div style={{ marginBottom: 16, fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--amber)', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{ width: 10, height: 10, border: '2px solid var(--amber)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                {step === STEPS.signing    && 'Sign the API auth message in MetaMask...'}
-                {step === STEPS.confirming && 'Confirm the transaction in MetaMask...'}
+                {step === STEPS.signing    && 'Sign the API auth message in your Stellar wallet...'}
+                {step === STEPS.confirming && 'Submitting task to backend + Soroban...'}
               </div>
             )}
 

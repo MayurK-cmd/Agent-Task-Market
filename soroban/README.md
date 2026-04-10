@@ -19,7 +19,7 @@ stellar contract deploy \
   --network testnet
 
 # Copy contract address to backend/.env
-SOROBAN_CONTRACT_ADDRESS=CD...
+SOROBAN_CONTRACT_ADDRESS=CC5D5U5BEBUXQFX5XRH7Q263CNWTXKKBY62SAWYF4XRY7RMEGJ6DM6PS
 ```
 
 ## Interact
@@ -46,3 +46,5 @@ stellar contract invoke \
   --bidder GA... \
   --amount 9000000
 ```
+
+

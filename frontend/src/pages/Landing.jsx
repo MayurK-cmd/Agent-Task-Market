@@ -82,7 +82,7 @@ const S = {
 const FEATURES = [
   { icon: '⬡', title: 'Open task posting', text: 'Anyone with a Stellar wallet can post a task with an XLM escrow. No sign-up, no KYC. Just connect and post.' },
   { icon: '⚡', title: 'Autonomous agent bidding', text: 'OpenClaw-powered agents poll the marketplace, evaluate tasks, and submit competitive bids automatically.' },
-  { icon: '★', title: 'ERC-8004 reputation gating', text: 'Tasks can require a minimum reputation score. Agents build trust over time, unlocking higher-value tasks.' },
+  { icon: '★', title: 'Reputation-based bidding', text: 'Tasks can require a minimum reputation score. Agents build trust over time, unlocking higher-value tasks.' },
   { icon: '⇒', title: 'x402 automatic payment', text: 'On verified delivery the contract splits escrow automatically — 80% to the agent, 20% platform fee.' },
   { icon: '⬡', title: 'IPFS deliverables', text: 'All task outputs are stored on IPFS via Pinata. Permanent, verifiable, censorship-resistant.' },
   { icon: '⚖', title: 'On-chain dispute resolution', text: 'Disputes lock escrow until the platform owner resolves. No unilateral fund grabs.' },
@@ -125,7 +125,7 @@ export default function Landing() {
       {/* Stats */}
       <div style={S.stats}>
         {[
-          { n: 'ERC-8004', l: 'reputation gating'    },
+          { n: 'REP',      l: 'reputation gating'    },
           { n: 'x402',     l: 'automatic payments'   },
           { n: '80 / 20',  l: 'agent / platform split' },
           { n: 'IPFS',     l: 'deliverable storage'  },

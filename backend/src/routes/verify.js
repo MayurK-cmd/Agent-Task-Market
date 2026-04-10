@@ -13,7 +13,7 @@ const router = Router()
  * Uploads deliverable to IPFS, records CID, notifies poster.
  *
  * The poster then calls PATCH /tasks/:id/settle (with winning bid id)
- * which triggers the on-chain TaskMarket.sol::settleTask() split.
+ * which triggers Stellar settlement and payout split.
  *
  * Protected by:
  *   - requireWalletAuth (must be the winning bidder)

@@ -1,8 +1,8 @@
-import { Keypair, TransactionBuilder, Networks, StrKeyType, Asset, Transaction, SorobanRpc, Operation } from '@stellar/stellar-sdk'
+import { Keypair, TransactionBuilder, Networks, Asset, Horizon, Operation } from '@stellar/stellar-sdk'
 import 'dotenv/config'
 
 const NETWORK = Networks.TESTNET
-const RPC_URL = process.env.STELLAR_RPC_URL || 'https://soroban-test.stellar.org'
+const HORIZON_URL = 'https://horizon-testnet.stellar.org'
 
 /**
  * Create new Stellar wallet for agent
@@ -61,22 +61,22 @@ export async function fundWithFriendbot(publicKey) {
 }
 
 /**
- * Send XLM payment on Stellar testnet (REAL)
+ * Send XLM payment on Stellar testnet using Horizon
  */
 export async function sendPayment(secretKey, toAddress, amount) {
   try {
     const keypair = Keypair.fromSecret(secretKey)
-    const server = new SorobanRpc.Server(RPC_URL, { allowHttp: true })
+    const server = new Horizon.Server(HORIZON_URL)
 
     // Get source account
-    const sourceAccount = await server.getAccount(keypair.publicKey())
+    const sourceAccount = await server.loadAccount(keypair.publicKey())
 
     // Convert amount to stroops (1 XLM = 10^7 stroops)
     const xlmAmount = (BigInt(amount) / 10000000n).toString()
 
     // Build payment transaction
     const tx = new TransactionBuilder(sourceAccount, {
-      fee: await server.getLatestFee(),
+      fee: sourceAccount.subentry_count * 100 + 100,
       networkPassphrase: NETWORK,
     })
       .addOperation(
@@ -91,23 +91,8 @@ export async function sendPayment(secretKey, toAddress, amount) {
 
     tx.sign(keypair)
 
-    // Submit transaction
-    const result = await server.sendTransaction(tx)
-
-    if (result.status !== 'PENDING') {
-      throw new Error('Transaction not accepted')
-    }
-
-    // Wait for confirmation
-    let txResponse = await server.getTransaction(result.hash)
-    while (txResponse.status === 'NOT_FOUND') {
-      await new Promise(r => setTimeout(r, 1000))
-      txResponse = await server.getTransaction(result.hash)
-    }
-
-    if (txResponse.status === 'FAILED') {
-      throw new Error(txResponse.resultXdr)
-    }
+    // Submit transaction via Horizon
+    const result = await server.submitTransaction(tx)
 
     return {
       success: true,
@@ -130,5 +115,4 @@ export default {
   fundWithFriendbot,
   sendPayment,
   NETWORK,
-  RPC_URL,
 }

@@ -3,7 +3,7 @@
 
 #![no_std]
 use soroban_sdk::{
-    contract, contractimpl, contracterror, contracttype, Address, Env, String, Symbol, Vec,
+    contract, contractimpl, contracterror, contracttype, Address, Env, String,
 };
 
 #[contracttype]
@@ -36,8 +36,16 @@ pub struct Bid {
     pub amount: i128,
 }
 
+#[contracttype]
+pub enum DataKey {
+    Task(u64),
+    Bid(u64),
+    TaskCounter,
+    BidCounter,
+}
+
 #[contracterror]
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
 pub enum Error {
     TaskNotFound = 1,
@@ -59,16 +67,16 @@ impl AgentMarketEscrow {
     pub fn post_task(
         env: Env,
         poster: Address,
-        title: String,
+        _title: String,
         budget: i128,
         deadline: u64,
     ) -> Result<u64, Error> {
         poster.require_auth();
 
-        // Transfer budget from poster to contract
-        // In production: use native token transfer
-
-        let task_id: u64 = env.storage().instance().get(&Symbol::new(&env, "task_counter"))
+        let task_id: u64 = env
+            .storage()
+            .instance()
+            .get(&DataKey::TaskCounter)
             .unwrap_or(0u64);
         let new_id = task_id + 1;
 
@@ -82,8 +90,8 @@ impl AgentMarketEscrow {
             winning_amount: 0,
         };
 
-        env.storage().instance().set(&Self::task_key(new_id), &task);
-        env.storage().instance().set(&Symbol::new(&env, "task_counter"), &new_id);
+        env.storage().instance().set(&DataKey::Task(new_id), &task);
+        env.storage().instance().set(&DataKey::TaskCounter, &new_id);
 
         Ok(new_id)
     }
@@ -97,8 +105,10 @@ impl AgentMarketEscrow {
     ) -> Result<u64, Error> {
         bidder.require_auth();
 
-        let mut task: Task = env.storage().instance()
-            .get(&Self::task_key(task_id))
+        let task: Task = env
+            .storage()
+            .instance()
+            .get(&DataKey::Task(task_id))
             .ok_or(Error::TaskNotFound)?;
 
         if task.status != TaskStatus::Open {
@@ -109,7 +119,10 @@ impl AgentMarketEscrow {
             return Err(Error::InsufficientFunds);
         }
 
-        let bid_id: u64 = env.storage().instance().get(&Symbol::new(&env, "bid_counter"))
+        let bid_id: u64 = env
+            .storage()
+            .instance()
+            .get(&DataKey::BidCounter)
             .unwrap_or(0u64);
         let new_bid_id = bid_id + 1;
 
@@ -120,38 +133,46 @@ impl AgentMarketEscrow {
             amount,
         };
 
-        env.storage().instance().set(&Self::bid_key(new_bid_id), &bid);
-        env.storage().instance().set(&Symbol::new(&env, "bid_counter"), &new_bid_id);
+        env.storage().instance().set(&DataKey::Bid(new_bid_id), &bid);
+        env.storage().instance().set(&DataKey::BidCounter, &new_bid_id);
 
         Ok(new_bid_id)
     }
 
-    /// Poster accepts a bid
+    /// Poster accepts a bid, moving task to InProgress
     pub fn accept_bid(env: Env, task_id: u64, bid_id: u64, poster: Address) -> Result<(), Error> {
         poster.require_auth();
 
-        let mut task: Task = env.storage().instance()
-            .get(&Self::task_key(task_id))
+        let mut task: Task = env
+            .storage()
+            .instance()
+            .get(&DataKey::Task(task_id))
             .ok_or(Error::TaskNotFound)?;
 
         if task.poster != poster {
             return Err(Error::NotPoster);
         }
 
-        let bid: Bid = env.storage().instance()
-            .get(&Self::bid_key(bid_id))
+        if task.status != TaskStatus::Open {
+            return Err(Error::TaskNotOpen);
+        }
+
+        let bid: Bid = env
+            .storage()
+            .instance()
+            .get(&DataKey::Bid(bid_id))
             .ok_or(Error::BidNotFound)?;
 
         task.status = TaskStatus::InProgress;
         task.winning_bidder = Some(bid.bidder.clone());
         task.winning_amount = bid.amount;
 
-        env.storage().instance().set(&Self::task_key(task_id), &task);
+        env.storage().instance().set(&DataKey::Task(task_id), &task);
 
         Ok(())
     }
 
-    /// Settle task - pay winning bidder (80/20 split)
+    /// Settle task — pay winning bidder minus platform commission
     pub fn settle_task(
         env: Env,
         task_id: u64,
@@ -160,49 +181,85 @@ impl AgentMarketEscrow {
     ) -> Result<(), Error> {
         platform.require_auth();
 
-        let mut task: Task = env.storage().instance()
-            .get(&Self::task_key(task_id))
+        let mut task: Task = env
+            .storage()
+            .instance()
+            .get(&DataKey::Task(task_id))
             .ok_or(Error::TaskNotFound)?;
 
         if task.status != TaskStatus::InProgress {
             return Err(Error::TaskNotOpen);
         }
 
-        let bidder = task.winning_bidder.clone().ok_or(Error::NotWinningBidder)?;
+        let _bidder = task.winning_bidder.clone().ok_or(Error::NotWinningBidder)?;
         let platform_fee = task.winning_amount * commission_bps / 10000;
-        let agent_payout = task.winning_amount - platform_fee;
+        let _agent_payout = task.winning_amount - platform_fee;
 
-        // Transfer to agent (80%)
-        // In production: token.transfer(&bidder, &agent_payout)
-
-        // Transfer to platform (20%)
-        // In production: token.transfer(&platform, &platform_fee)
+        // In production, perform actual token transfers:
+        // let token = token::Client::new(&env, &token_address);
+        // token.transfer(&env.current_contract_address(), &_bidder, &_agent_payout);
+        // token.transfer(&env.current_contract_address(), &platform, &platform_fee);
 
         task.status = TaskStatus::Completed;
-        env.storage().instance().set(&Self::task_key(task_id), &task);
+        env.storage().instance().set(&DataKey::Task(task_id), &task);
+
+        Ok(())
+    }
+
+    /// Mark a task as disputed
+    pub fn dispute_task(env: Env, task_id: u64, caller: Address) -> Result<(), Error> {
+        caller.require_auth();
+
+        let mut task: Task = env
+            .storage()
+            .instance()
+            .get(&DataKey::Task(task_id))
+            .ok_or(Error::TaskNotFound)?;
+
+        if task.status != TaskStatus::InProgress {
+            return Err(Error::TaskNotOpen);
+        }
+
+        let winning_bidder = task.winning_bidder.clone().ok_or(Error::NotWinningBidder)?;
+        if caller != task.poster && caller != winning_bidder {
+            return Err(Error::NotPoster);
+        }
+
+        task.status = TaskStatus::Disputed;
+        env.storage().instance().set(&DataKey::Task(task_id), &task);
 
         Ok(())
     }
 
     /// Get task details
     pub fn get_task(env: Env, task_id: u64) -> Result<Task, Error> {
-        env.storage().instance()
-            .get(&Self::task_key(task_id))
+        env.storage()
+            .instance()
+            .get(&DataKey::Task(task_id))
             .ok_or(Error::TaskNotFound)
     }
 
     /// Get bid details
     pub fn get_bid(env: Env, bid_id: u64) -> Result<Bid, Error> {
-        env.storage().instance()
-            .get(&Self::bid_key(bid_id))
+        env.storage()
+            .instance()
+            .get(&DataKey::Bid(bid_id))
             .ok_or(Error::BidNotFound)
     }
 
-    fn task_key(task_id: u64) -> Symbol {
-        Symbol::new(&std::env::current_borrowed(), "task")
+    /// Get current task counter
+    pub fn get_task_count(env: Env) -> u64 {
+        env.storage()
+            .instance()
+            .get(&DataKey::TaskCounter)
+            .unwrap_or(0u64)
     }
 
-    fn bid_key(bid_id: u64) -> Symbol {
-        Symbol::new(&std::env::current_borrowed(), "bid")
+    /// Get current bid counter
+    pub fn get_bid_count(env: Env) -> u64 {
+        env.storage()
+            .instance()
+            .get(&DataKey::BidCounter)
+            .unwrap_or(0u64)
     }
 }

@@ -13,7 +13,8 @@ const SECTIONS = [
 
 const CODE = {
   env: `# agents/bidder/.env
-AGENT_PRIVATE_KEY=YourStellarSecretKey
+STELLAR_SECRET_KEY=S...
+STELLAR_PUBLIC_KEY=G...
 MARKETPLACE_API=https://your-api.onrender.com
 AGENT_NAME=MyAgent-1
 AGENT_SPECIALTIES=data_collection,content_gen
@@ -28,9 +29,9 @@ node agent.js`,
 
   curl: `curl -X POST https://your-api.onrender.com/tasks \\
   -H "Content-Type: application/json" \\
-  -H "x-wallet-address: 0xYour..." \\
+  -H "x-wallet-address: G..." \\
   -H "x-wallet-message: AgentMarket:uuid:timestamp" \\
-  -H "x-wallet-signature: 0xSig..." \\
+  -H "x-wallet-signature: <hex-signature>" \\
   -d '{
     "title": "Fetch top 10 Stellar DeFi protocols",
     "category": "data_collection",
@@ -84,7 +85,7 @@ const API_ROUTES = [
   { method: 'PATCH', path: '/tasks/:id/dispute',   auth: true,  desc: 'Raise a dispute — locks escrow' },
   { method: 'GET',   path: '/bids',                auth: false, desc: 'Recent bids across all tasks' },
   { method: 'GET',   path: '/bids/:taskId',         auth: false, desc: 'All bids for a specific task' },
-  { method: 'POST',  path: '/bids',                auth: true,  desc: 'Submit a bid (wallet auth + ERC-8004 rep check)' },
+  { method: 'POST',  path: '/bids',                auth: true,  desc: 'Submit a bid (wallet auth + min_rep_score check)' },
   { method: 'POST',  path: '/bids/:id/accept',      auth: true,  desc: 'Accept a bid — moves task to in_progress' },
   { method: 'GET',   path: '/agents',              auth: false, desc: 'Agent leaderboard sorted by reputation' },
   { method: 'PUT',   path: '/agents/me',           auth: true,  desc: 'Register or update agent profile' },
@@ -164,7 +165,7 @@ export default function Docs() {
             </div>
           ))}
         </div>
-        <P>Budget is held in escrow by TaskMarket.sol until settlement. You can raise a dispute if the deliverable is unsatisfactory — escrow stays locked until the platform resolves it.</P>
+        <P>Budget is held in Soroban task escrow until settlement. You can raise a dispute if the deliverable is unsatisfactory — escrow stays locked until the platform resolves it.</P>
 
         <H2 id="bidding">How bidding works</H2>
         <P>Agents filter tasks by their declared specialties, budget range, and reputation requirements. They bid below the posted budget (default 10% discount) to be competitive. The bid comparison UI shows all bids sorted by competitiveness with a "why this bid won" explanation.</P>
@@ -184,7 +185,7 @@ export default function Docs() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
           {[
             ['postTask(title, category, deadline, minRepScore)', 'payable', 'Creates task, holds budget in escrow'],
-            ['submitBid(taskId, amount, message)',               'returns bidId', 'Gated by ERC-8004 rep score'],
+            ['submit_bid(task_id, bidder, amount)',               'returns bidId', 'Gated by min_rep_score in marketplace'],
             ['acceptBid(bidId)',                                  'onlyPoster', 'Moves task to InProgress'],
             ['settleTask(taskId, ipfsCid)',                       'onlyPoster', '80/20 split, marks complete'],
             ['disputeTask(taskId)',                               'onlyPoster', 'Locks escrow pending review'],
@@ -202,7 +203,7 @@ export default function Docs() {
         <P>Commission is set at deployment (default 20%, max 30%). Owner can adjust via setCommission(). Platform wallet receives fees automatically on settlement.</P>
 
         <H2 id="api">API reference</H2>
-        <P>Base URL: your Render deployment URL. Auth uses EIP-191 wallet signatures in headers.</P>
+        <P>Base URL: your Render deployment URL. Auth uses Stellar message signatures in headers.</P>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 24 }}>
           {API_ROUTES.map(r => (
             <div key={r.path} style={{ display: 'grid', gridTemplateColumns: '60px 240px 60px 1fr', gap: 12, alignItems: 'center', padding: '8px 12px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--r)' }}>

@@ -14,8 +14,8 @@ A task object from `poll-tasks` skill.
 bid_amount_wei = task.budget_wei * (1 - bid_discount_percent / 100)
 ```
 
-Example: task budget = 2 cUSD (2000000000000000000 wei), discount = 10%
-→ bid = 1.8 cUSD (1800000000000000000 wei)
+Example: task budget = 2 XLM (20000000 stroops), discount = 10%
+→ bid = 1.8 XLM (18000000 stroops)
 
 Always bid BELOW the posted budget — the poster gets more value, you're
 more likely to win.
@@ -36,7 +36,7 @@ Example for `data_collection`:
 
 ```
 message   = "AgentMarket:{random_uuid}:{Date.now()}"
-signature = sign(message, my_private_key)   // EIP-191 personal_sign
+signature = sign(message, my_private_key)   // Stellar signature (hex)
 
 headers = {
   "Content-Type":        "application/json",
