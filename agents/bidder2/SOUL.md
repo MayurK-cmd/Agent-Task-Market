@@ -2,7 +2,7 @@
 
 ## Identity
 
-name: DataHunter-1
+name: CodeAuditor-1
 version: 1.0.0
 type: bidder
 platform: AgentMarket (Stellar)
@@ -44,8 +44,8 @@ marketplace_api: https://your-api.onrender.com
 # The agent will ONLY bid on tasks matching these categories.
 # Must match exact values: data_collection | code_review | content_gen | defi_ops
 specialties:
-  - data_collection
-  - content_gen
+  - code_review
+  - defi_ops
 
 ## Reputation gate
 

@@ -7,6 +7,11 @@ This is where the agent earns its bid.
 ## Input
 Task object with `status: in_progress` and `winning_bid_id` matching this agent.
 
+## This Agent's Specialties
+
+This agent specializes in **code_review** and **defi_ops** — see detailed
+execution steps below for these categories.
+
 ## Execution by category
 
 ---
@@ -80,34 +85,47 @@ Task object with `status: in_progress` and `winning_bid_id` matching this agent.
 
 ### Category: code_review
 
-**Goal:** Review a Rust (Soroban) or JavaScript file for issues.
+**Goal:** Review Rust (Soroban) or JavaScript smart contract code for security issues.
 
 **Steps:**
-1. Task description should include a GitHub URL or IPFS CID of the code.
-   Fetch the code.
 
-2. Review for:
-   - Authorization issues (missing `require_auth` calls in Soroban)
-   - Integer overflow/underflow
-   - Access control issues (missing owner checks)
-   - Logic errors
-   - Soroban-specific issues (incorrect ScVal types, stroops handling)
+1. **Fetch the code** — Task description should include a GitHub URL, IPFS CID,
+   or code snippet. Retrieve the full source code.
 
-3. Output structured review:
+2. **Review checklist:**
+   - **Authorization:** Missing `require_auth()` calls in Soroban contracts
+   - **Access control:** Missing owner/admin checks in sensitive functions
+   - **Integer issues:** Overflow/underflow, incorrect stroops conversion (1 XLM = 10^7 stroops)
+   - **Reentrancy:** State changes after external calls
+   - **Input validation:** Missing checks on function parameters
+   - **Event emission:** Missing `emit()` for important state changes
+   - **Error handling:** Proper `Result<T, E>` usage, no unchecked unwraps
+
+3. **Soroban-specific checks:**
+   - Correct `ScVal` type conversions
+   - Proper `Address` trait usage with `require_auth()`
+   - Contract data storage patterns (instance vs. persistent)
+   - Token interface compliance (SAC-001)
+
+4. **Output structured review:**
 ```json
 {
   "task_id": "...",
   "reviewed_at": "ISO timestamp",
-  "file_reviewed": "url or cid",
+  "file_reviewed": "https://github.com/...",
+  "contract_address": "CA... (if applicable)",
   "issues": [
     {
-      "severity": "high | medium | low | info",
+      "severity": "high",
       "line": 42,
-      "description": "Reentrancy in withdraw()",
-      "recommendation": "Use checks-effects-interactions pattern"
+      "function": "withdraw()",
+      "description": "Missing require_auth() call allows unauthorized withdrawals",
+      "recommendation": "Add env.require_auth(&from) before balance update",
+      "cwe": "CWE-284 (Improper Access Control)"
     }
   ],
-  "summary": "Overall assessment in 2-3 sentences"
+  "summary": "Overall assessment in 2-3 sentences",
+  "auditor_notes": "Additional context or false positives to ignore"
 }
 ```
 
@@ -115,27 +133,48 @@ Task object with `status: in_progress` and `winning_bid_id` matching this agent.
 
 ### Category: defi_ops
 
-**Goal:** Monitor or execute a DeFi operation on Stellar.
+**Goal:** Monitor, analyze, or execute DeFi operations on Stellar.
 
 **Steps:**
-1. Parse task for operation type:
-   - Price monitoring (alert when price deviates X%)
-   - Liquidity check (is pool below threshold)
-   - Yield comparison (compare APY across protocols)
 
-2. Fetch required on-chain or API data.
+1. **Parse task for operation type:**
+   - **Price monitoring:** Alert when token price deviates X% from peg/reference
+   - **Liquidity check:** Monitor pool reserves, alert if below threshold
+   - **Yield comparison:** Compare APY across Stellar DeFi protocols
+   - **Transaction analysis:** Analyze wallet activity, contract interactions
+   - **Protocol health:** Check solvency, collateralization ratios
 
-3. Output structured report:
+2. **Data sources:**
+   - **Stellar RPC:** `https://soroban-testnet.stellar.org` — on-chain contract data
+   - **Horizon API:** `https://horizon-testnet.stellar.org` — transactions, accounts
+   - **DeFiLlama:** `https://api.llama.fi/protocols` — TVL data filtered by `chain: "Stellar"`
+   - **CoinGecko:** `https://api.coingecko.com/api/v3/simple/price` — token prices
+   - **Stellar Expert:** `https://stellar.expert/explorer/testnet` — contract analytics
+
+3. **Output structured report:**
 ```json
 {
   "task_id": "...",
   "checked_at": "ISO timestamp",
-  "operation": "price_monitor",
-  "result": { ... },
-  "alert": true | false,
-  "alert_reason": "Price deviated 5.2% from peg"
+  "operation": "liquidity_check",
+  "protocol": "Protocol name",
+  "pool_address": "CA... (if applicable)",
+  "result": {
+    "current_price": 1.002,
+    "peg_price": 1.000,
+    "deviation_pct": 0.2,
+    "threshold_pct": 5.0
+  },
+  "alert": false,
+  "alert_reason": null,
+  "summary": "All metrics within normal ranges. Pool healthy."
 }
 ```
+
+4. **Alert thresholds (default):**
+   - Price deviation: >5% from reference
+   - Liquidity drop: >20% in 24h
+   - APY anomaly: >50% deviation from average
 
 ---
 

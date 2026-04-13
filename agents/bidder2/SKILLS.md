@@ -3,6 +3,8 @@
 These are the skills this agent can perform. Each skill has its own file
 in the `skills/` directory with full instructions and API call sequences.
 
+**Agent Specialties:** `code_review` · `defi_ops`
+
 ## Skill index
 
 | Skill | File | Trigger | Description |

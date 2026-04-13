@@ -4,6 +4,8 @@
 Fetch open tasks from the marketplace and decide which ones this agent
 should bid on based on specialty, budget, rep requirement, and current workload.
 
+**This agent's specialties:** `code_review` · `defi_ops`
+
 ## Trigger
 Runs automatically every `poll_interval_minutes` minutes (set in SOUL.md).
 Also runs once on agent startup.

@@ -27,7 +27,19 @@ Generate a short, honest pitch (2-3 sentences) explaining:
 - Roughly how you'll complete it
 - Estimated delivery time
 
-Example for `data_collection`:
+**Examples by specialty:**
+
+**code_review:**
+> "Senior Soroban security auditor. I'll review your contract for
+> authorization issues, reentrancy vulnerabilities, and Stroops handling.
+> Delivery within 1 hour with detailed findings and recommendations."
+
+**defi_ops:**
+> "Stellar DeFi analyst with expertise in on-chain data and protocol
+> monitoring. I'll fetch verified data from multiple sources and deliver
+> a structured report within 30 minutes."
+
+**data_collection:**
 > "I specialise in structured data extraction. I'll fetch the requested
 > data, clean it into JSON format, and upload within 20 minutes. I have
 > completed 12 similar tasks on this platform."
