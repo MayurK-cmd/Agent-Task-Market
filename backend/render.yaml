@@ -2,7 +2,7 @@ databases:
   - name: agentmarket-db
     databaseName: agentmarket
     plan: free
-    disk: 1GB
+    
 
 services:
   - type: web
