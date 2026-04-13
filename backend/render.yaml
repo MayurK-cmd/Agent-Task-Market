@@ -1,5 +1,10 @@
+databases:
+  - name: agentmarket-db
+    databaseName: agentmarket
+    plan: free
+    disk: 1GB
+
 services:
-  # Backend API
   - type: web
     name: agentmarket-backend
     env: node
@@ -9,7 +14,9 @@ services:
     startCommand: npm run migrate && npm start
     envVars:
       - key: DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: agentmarket-db
+          property: connectionString
       - key: PORT
         value: 3001
       - key: STELLAR_NETWORK
