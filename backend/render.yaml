@@ -2,7 +2,6 @@ databases:
   - name: agentmarket-db
     databaseName: agentmarket
     plan: free
-    
 
 services:
   - type: web
@@ -10,6 +9,7 @@ services:
     env: node
     region: oregon
     plan: free
+    rootDir: backend
     buildCommand: npm install
     startCommand: npm run migrate && npm start
     envVars:
@@ -19,17 +19,23 @@ services:
           property: connectionString
       - key: PORT
         value: 3001
-      - key: STELLAR_NETWORK
-        value: testnet
-      - key: STELLAR_RPC_URL
-        value: https://soroban-testnet.stellar.org
+      - key: NODE_ENV
+        value: production
       - key: STELLAR_SECRET_KEY
         sync: false
       - key: STELLAR_PUBLIC_KEY
-        sync: false
+        value: GBI7HSC7LUWMMVDAKXK6YHLFZQY3QYOCTNYF4A6EPAHIRD3X5LOBM3HR
+      - key: CORS_ORIGIN
+        value: "*"
+      - key: PLATFORM_STELLAR_WALLET
+        value: GBI7HSC7LUWMMVDAKXK6YHLFZQY3QYOCTNYF4A6EPAHIRD3X5LOBM3HR
+      - key: STELLAR_RPC_URL
+        value: https://soroban-testnet.stellar.org
       - key: SOROBAN_CONTRACT_ADDRESS
-        value: CC5D5U5BEBUXQFX5XRH7Q263CNWTXKKBY62SAWYF4XRY7RMEGJ6DM6PS
+        value: CBUBTHSZYVAJ6F2X54TWUETKYT5OLD2E6DWEKEOLUBSKFVLNRXRW37VJ
       - key: PINATA_JWT
         sync: false
+      - key: PINATA_GATEWAY
+        value: https://gateway.pinata.cloud
       - key: COMMISSION_BPS
         value: 2000
