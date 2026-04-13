@@ -4,10 +4,13 @@ import { CATEGORY_COLORS, EXPLORER, shortAddr, ago, lumens } from '../lib/config
 
 // ── Shared styles ─────────────────────────────────────────────────────────────
 const pill = (label, color) => ({
-  display: 'inline-flex', alignItems: 'center',
-  background: color + '18', color, border: `1px solid ${color}40`,
-  fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '0.06em',
-  padding: '2px 7px', borderRadius: 2, textTransform: 'uppercase', whiteSpace: 'nowrap',
+  display: 'inline-flex', alignItems: 'center', gap: 4,
+  background: `linear-gradient(135deg, ${color}20, ${color}10)`,
+  color, border: `1px solid ${color}40`,
+  fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '0.08em',
+  padding: '4px 10px', borderRadius: 4, textTransform: 'uppercase', whiteSpace: 'nowrap',
+  boxShadow: `0 0 10px ${color}20`,
+  transition: 'all 0.2s ease',
 })
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -16,11 +19,27 @@ const pill = (label, color) => ({
 function RepBar({ score }) {
   const color = score >= 80 ? 'var(--accent)' : score >= 60 ? 'var(--amber)' : 'var(--red)'
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <div style={{ flex: 1, height: 4, background: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
-        <div style={{ width: `${score}%`, height: '100%', background: color, borderRadius: 2, transition: 'width 0.6s ease' }} />
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{
+        flex: 1, height: 6,
+        background: 'rgba(30,40,48,0.8)',
+        borderRadius: 3,
+        overflow: 'hidden',
+        boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.3)',
+      }}>
+        <div style={{
+          width: `${score}%`, height: '100%',
+          background: `linear-gradient(90deg, ${color}, ${color}aa)`,
+          borderRadius: 3,
+          transition: 'width 0.6s ease',
+          boxShadow: `0 0 10px ${color}60`,
+        }} />
       </div>
-      <span style={{ fontFamily: 'var(--mono)', fontSize: 12, color, minWidth: 24, textAlign: 'right', fontWeight: 700 }}>{score}</span>
+      <span style={{
+        fontFamily: 'var(--mono)', fontSize: 12, color,
+        minWidth: 28, textAlign: 'right', fontWeight: 700,
+        textShadow: `0 0 10px ${color}40`,
+      }}>{score}</span>
     </div>
   )
 }
@@ -29,58 +48,227 @@ export function Leaderboard() {
   const { agents, loading } = useAgents()
 
   return (
-    <div style={{ padding: 24, overflowY: 'auto', height: '100%' }}>
-      <div style={{ marginBottom: 20, display: 'flex', alignItems: 'baseline', gap: 12 }}>
-        <h2 style={{ fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--text)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Agent leaderboard</h2>
-        <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)' }}>Stellar reputation · live</span>
+    <div style={{
+      padding: 28,
+      overflowY: 'auto',
+      height: '100%',
+      background: 'radial-gradient(ellipse 60% 40% at 50% 0%, rgba(0,229,160,0.03), transparent 60%)',
+    }}>
+      <div style={{ marginBottom: 28, display: 'flex', alignItems: 'center', gap: 14 }}>
+        <div style={{
+          width: 10, height: 10, borderRadius: '50%',
+          background: 'var(--accent)',
+          boxShadow: '0 0 15px rgba(0,229,160,0.5)',
+          animation: 'pulse-dot 2s infinite',
+        }} />
+        <h2 style={{
+          fontFamily: 'var(--mono)', fontSize: 14,
+          color: 'var(--text)', fontWeight: 700,
+          textTransform: 'uppercase', letterSpacing: '0.15em',
+        }}>Agent leaderboard</h2>
+        <span style={{
+          fontFamily: 'var(--mono)', fontSize: 9,
+          color: 'var(--text3)',
+          textTransform: 'uppercase', letterSpacing: '0.08em',
+          padding: '3px 8px',
+          background: 'rgba(0,229,160,0.1)',
+          border: '1px solid rgba(0,229,160,0.2)',
+          borderRadius: 4,
+        }}>Stellar reputation · live</span>
       </div>
 
-      {loading && <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text3)' }}>loading agents...</div>}
+      {loading && (
+        <div style={{
+          fontFamily: 'var(--mono)', fontSize: 11,
+          color: 'var(--text3)',
+          display: 'flex', alignItems: 'center', gap: 10,
+        }}>
+          <div style={{
+            width: 10, height: 10,
+            border: '2px solid rgba(0,229,160,0.2)',
+            borderTopColor: 'var(--accent)',
+            borderRadius: '50%',
+            animation: 'spin 0.8s linear infinite',
+          }} />
+          loading agents...
+        </div>
+      )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {agents.sort((a,b) => b.rep_score - a.rep_score).map((agent, i) => (
-          <div key={agent.id} style={{
-            background: 'var(--bg2)', border: `1px solid ${i === 0 ? 'var(--accent)30' : 'var(--border)'}`,
-            borderRadius: 'var(--r2)', padding: '14px 18px',
-            display: 'grid', gridTemplateColumns: '28px 200px 1fr 80px 110px 110px 40px',
-            alignItems: 'center', gap: 16, animation: 'slide-in 0.3s ease',
-            animationDelay: `${i * 0.04}s`, animationFillMode: 'both',
-          }}>
-            <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: i === 0 ? 'var(--accent)' : i === 1 ? 'var(--amber)' : 'var(--text3)', fontWeight: 700 }}>#{i+1}</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: agent.is_online ? 'var(--accent)' : 'var(--text3)', animation: agent.is_online ? 'pulse-dot 2s infinite' : 'none', flexShrink: 0 }} />
+          <div
+            key={agent.id}
+            style={{
+              background: i === 0
+                ? 'linear-gradient(135deg, rgba(0,229,160,0.12), rgba(0,212,255,0.08))'
+                : 'linear-gradient(135deg, rgba(21,27,34,0.6), rgba(15,19,24,0.8))',
+              border: `1px solid ${i === 0 ? 'rgba(0,229,160,0.4)' : 'rgba(30,40,48,0.8)'}`,
+              borderRadius: 'var(--r2)',
+              padding: '16px 20px',
+              display: 'grid',
+              gridTemplateColumns: '32px 220px 1fr 90px 120px 120px 48px',
+              alignItems: 'center',
+              gap: 18,
+              animation: 'slide-in 0.3s ease',
+              animationDelay: `${i * 0.04}s`,
+              animationFillMode: 'both',
+              transition: 'all 0.2s ease',
+              boxShadow: i === 0 ? '0 0 30px rgba(0,229,160,0.15)' : 'none',
+            }}
+            onMouseEnter={e => {
+              if (i !== 0) {
+                e.currentTarget.style.borderColor = 'rgba(0,229,160,0.3)';
+                e.currentTarget.style.transform = 'translateX(2px)';
+              }
+            }}
+            onMouseLeave={e => {
+              if (i !== 0) {
+                e.currentTarget.style.borderColor = 'rgba(30,40,48,0.8)';
+                e.currentTarget.style.transform = 'translateX(0)';
+              }
+            }}
+          >
+            <span style={{
+              fontFamily: 'var(--mono)', fontSize: 12,
+              color: i === 0 ? 'var(--accent)' : i === 1 ? 'var(--amber)' : 'var(--text3)',
+              fontWeight: 700,
+              textShadow: i === 0 ? '0 0 15px rgba(0,229,160,0.5)' : 'none',
+            }}>#{i+1}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+              <div style={{
+                width: 10, height: 10, borderRadius: '50%',
+                background: agent.is_online ? 'var(--accent)' : 'var(--text3)',
+                animation: agent.is_online ? 'pulse-dot 2s infinite' : 'none',
+                flexShrink: 0,
+                boxShadow: agent.is_online ? '0 0 10px rgba(0,229,160,0.5)' : 'none',
+              }} />
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--text)', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{agent.name || shortAddr(agent.wallet)}</div>
-                <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)' }}>{shortAddr(agent.wallet)}</div>
+                <div style={{
+                  fontFamily: 'var(--mono)', fontSize: 13,
+                  color: 'var(--text)', fontWeight: 700,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>{agent.name || shortAddr(agent.wallet)}</div>
+                <div style={{
+                  fontFamily: 'var(--mono)', fontSize: 9,
+                  color: 'var(--text3)', letterSpacing: '0.05em',
+                }}>{shortAddr(agent.wallet)}</div>
               </div>
             </div>
             <RepBar score={agent.rep_score} />
-            <div style={pill(agent.specialty || 'unknown', CATEGORY_COLORS[agent.specialty] || '#888')}>{(agent.specialty || 'unknown').replace('_',' ')}</div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--text)', fontWeight: 700 }}>{agent.tasks_done}</div>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)' }}>tasks done</div>
+            <div style={pill(agent.specialty || 'unknown', CATEGORY_COLORS[agent.specialty] || '#888')}>
+              {(agent.specialty || 'unknown').replace('_',' ')}
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--accent)', fontWeight: 700 }}>{lumens(agent.total_earned)}</div>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)' }}>XLM earned</div>
+              <div style={{
+                fontFamily: 'var(--mono)', fontSize: 14,
+                color: 'var(--text)', fontWeight: 700,
+              }}>{agent.tasks_done}</div>
+              <div style={{
+                fontFamily: 'var(--mono)', fontSize: 9,
+                color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em',
+              }}>tasks done</div>
             </div>
-            <a href={`${EXPLORER}/address/${agent.wallet}`} target="_blank" rel="noreferrer"
-              style={{ color: 'var(--blue)', fontFamily: 'var(--mono)', fontSize: 10, textDecoration: 'none', textAlign: 'center' }}>↗</a>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{
+                fontFamily: 'var(--mono)', fontSize: 14,
+                color: 'var(--accent)', fontWeight: 700,
+                textShadow: '0 0 15px rgba(0,229,160,0.4)',
+              }}>{lumens(agent.total_earned)}</div>
+              <div style={{
+                fontFamily: 'var(--mono)', fontSize: 9,
+                color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em',
+              }}>XLM earned</div>
+            </div>
+            <a
+              href={`${EXPLORER}/address/${agent.wallet}`}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                color: 'var(--blue)',
+                fontFamily: 'var(--mono)',
+                fontSize: 11,
+                textDecoration: 'none',
+                textAlign: 'center',
+                transition: 'all 0.2s ease',
+                padding: '6px',
+                borderRadius: 4,
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.color = 'var(--accent)';
+                e.currentTarget.style.background = 'rgba(0,229,160,0.1)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.color = 'var(--blue)';
+                e.currentTarget.style.background = 'transparent';
+              }}
+            >↗</a>
           </div>
         ))}
       </div>
 
       {/* Reputation info */}
-      <div style={{ marginTop: 24, padding: '14px 18px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 'var(--r2)', borderLeft: '3px solid var(--accent)' }}>
-        <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Marketplace reputation model</div>
-        <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.7 }}>
-          Reputation is tracked in marketplace state. Tasks with <code style={{ background: 'var(--bg3)', padding: '1px 5px', borderRadius: 3, fontFamily: 'var(--mono)', fontSize: 11 }}>min_rep_score</code> gate which agents can bid.
+      <div style={{
+        marginTop: 28,
+        padding: '18px 22px',
+        background: 'linear-gradient(135deg, rgba(21,27,34,0.8), rgba(15,19,24,0.95))',
+        border: '1px solid rgba(0,229,160,0.2)',
+        borderRadius: 'var(--r2)',
+        borderLeft: '3px solid var(--accent)',
+        boxShadow: '0 0 30px rgba(0,229,160,0.08)',
+      }}>
+        <div style={{
+          fontFamily: 'var(--mono)', fontSize: 10,
+          color: 'var(--accent)',
+          textTransform: 'uppercase', letterSpacing: '0.1em',
+          marginBottom: 10,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+        }}>
+          <span style={{
+            width: 6, height: 6, borderRadius: '50%',
+            background: 'var(--accent)',
+            boxShadow: '0 0 8px rgba(0,229,160,0.5)',
+          }} />
+          Marketplace reputation model
         </div>
-        <div style={{ marginTop: 10, display: 'flex', gap: 16 }}>
+        <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.7 }}>
+          Reputation is tracked in marketplace state. Tasks with <code style={{
+            background: 'rgba(0,229,160,0.1)',
+            padding: '2px 8px',
+            borderRadius: 4,
+            fontFamily: 'var(--mono)',
+            fontSize: 11,
+            color: 'var(--accent)',
+            border: '1px solid rgba(0,229,160,0.2)',
+          }}>min_rep_score</code> gate which agents can bid.
+        </div>
+        <div style={{
+          marginTop: 14,
+          display: 'flex',
+          gap: 20,
+          flexWrap: 'wrap',
+        }}>
           {[['80+','var(--accent)','Premium tasks'],['60–79','var(--amber)','Standard tasks'],['<60','var(--red)','Entry tasks']].map(([r,c,l]) => (
-            <div key={r} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <div style={{ width: 8, height: 8, background: c, borderRadius: 1 }} />
-              <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text2)' }}>{r} {l}</span>
+            <div key={r} style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '6px 12px',
+              background: `${c}10`,
+              border: `1px solid ${c}30`,
+              borderRadius: 4,
+            }}>
+              <div style={{
+                width: 8, height: 8,
+                background: c,
+                borderRadius: 2,
+                boxShadow: `0 0 8px ${c}60`,
+              }} />
+              <span style={{
+                fontFamily: 'var(--mono)', fontSize: 10,
+                color: 'var(--text2)',
+              }}>{r} {l}</span>
             </div>
           ))}
         </div>
@@ -108,53 +296,315 @@ export function BidActivity() {
   const taskWithBids = tasks.filter(t => bids.some(b => b.task_id === t.id))
 
   return (
-    <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', height: '100%', overflow: 'hidden', background: 'radial-gradient(ellipse 60% 40% at 50% 0%, rgba(0,229,160,0.02), transparent 60%)' }}>
       {/* Left: task selector */}
-      <div style={{ width: 260, borderRight: '1px solid var(--border)', flexShrink: 0, overflowY: 'auto', background: 'var(--bg2)' }}>
-        <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'flex', justifyContent: 'space-between' }}>
-          <span>Filter by task</span>
-          {selected && <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontFamily: 'var(--mono)', fontSize: 10 }}>clear ×</button>}
+      <div style={{
+        width: 280,
+        borderRight: '1px solid rgba(30,40,48,0.8)',
+        flexShrink: 0,
+        overflowY: 'auto',
+        background: 'linear-gradient(180deg, rgba(15,19,24,0.95), rgba(10,12,15,0.98))',
+      }}>
+        <div style={{
+          padding: '14px 18px',
+          borderBottom: '1px solid rgba(30,40,48,0.8)',
+          fontFamily: 'var(--mono)',
+          fontSize: 10,
+          color: 'var(--text3)',
+          textTransform: 'uppercase',
+          letterSpacing: '0.1em',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{
+              width: 6, height: 6, borderRadius: '50%',
+              background: 'var(--accent)',
+              boxShadow: '0 0 8px rgba(0,229,160,0.5)',
+            }} />
+            Filter by task
+          </span>
+          {selected && (
+            <button
+              onClick={() => setSelected(null)}
+              style={{
+                background: 'rgba(0,229,160,0.1)',
+                border: '1px solid rgba(0,229,160,0.2)',
+                color: 'var(--accent)',
+                fontFamily: 'var(--mono)',
+                fontSize: 9,
+                padding: '3px 8px',
+                borderRadius: 4,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = 'var(--accent)';
+                e.currentTarget.style.color = '#000';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = 'rgba(0,229,160,0.1)';
+                e.currentTarget.style.color = 'var(--accent)';
+              }}
+            >clear ×</button>
+          )}
         </div>
-        <div onClick={() => setSelected(null)} style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', cursor: 'pointer', background: !selected ? 'var(--bg3)' : 'transparent', borderLeft: !selected ? '2px solid var(--accent)' : '2px solid transparent', fontFamily: 'var(--mono)', fontSize: 11, color: !selected ? 'var(--accent)' : 'var(--text2)' }}>
-          All bid activity
+        <div
+          onClick={() => setSelected(null)}
+          style={{
+            padding: '12px 18px',
+            borderBottom: '1px solid rgba(30,40,48,0.6)',
+            cursor: 'pointer',
+            background: !selected ? 'rgba(0,229,160,0.08)' : 'transparent',
+            borderLeft: !selected ? '3px solid var(--accent)' : '3px solid transparent',
+            fontFamily: 'var(--mono)',
+            fontSize: 11,
+            color: !selected ? 'var(--accent)' : 'var(--text2)',
+            transition: 'all 0.2s ease',
+          }}
+          onMouseEnter={e => {
+            if (selected) {
+              e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+              e.currentTarget.style.color = 'var(--text)';
+            }
+          }}
+          onMouseLeave={e => {
+            if (selected) {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.color = 'var(--text2)';
+            }
+          }}
+        >
+          <div style={{ fontWeight: 700, marginBottom: 2 }}>▦ All bid activity</div>
+          <div style={{ fontSize: 9, opacity: 0.7 }}>View all bids across tasks</div>
         </div>
         {taskWithBids.map(t => (
-          <div key={t.id} onClick={() => setSelected(t.id)} style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', cursor: 'pointer', background: selected === t.id ? 'var(--bg3)' : 'transparent', borderLeft: selected === t.id ? '2px solid var(--accent)' : '2px solid transparent' }}>
-            <div style={{ fontSize: 12, color: 'var(--text)', marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)' }}>{bids.filter(b => b.task_id === t.id).length} bids · {lumens(t.budget_stroops)} XLM</div>
+          <div
+            key={t.id}
+            onClick={() => setSelected(t.id)}
+            style={{
+              padding: '12px 18px',
+              borderBottom: '1px solid rgba(30,40,48,0.6)',
+              cursor: 'pointer',
+              background: selected === t.id ? 'rgba(0,229,160,0.08)' : 'transparent',
+              borderLeft: selected === t.id ? '3px solid var(--accent)' : '3px solid transparent',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={e => {
+              if (selected !== t.id) {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+                e.currentTarget.style.borderLeftColor = 'var(--border2)';
+              }
+            }}
+            onMouseLeave={e => {
+              if (selected !== t.id) {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.borderLeftColor = 'transparent';
+              }
+            }}
+          >
+            <div style={{
+              fontSize: 12,
+              color: 'var(--text)',
+              marginBottom: 4,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              fontWeight: 600,
+            }}>{t.title}</div>
+            <div style={{
+              fontFamily: 'var(--mono)',
+              fontSize: 9,
+              color: 'var(--text3)',
+              display: 'flex',
+              gap: 8,
+              alignItems: 'center',
+            }}>
+              <span style={{ color: 'var(--accent)' }}>{bids.filter(b => b.task_id === t.id).length} bids</span>
+              <span>·</span>
+              <span style={{ color: 'var(--text2)' }}>{lumens(t.budget_stroops)} XLM</span>
+            </div>
           </div>
         ))}
       </div>
 
       {/* Right: bid timeline */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)', background: 'var(--bg)', fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text3)' }}>
-          {displayBids.length} bids · auto-refresh 5s
+        <div style={{
+          padding: '14px 24px',
+          borderBottom: '1px solid rgba(30,40,48,0.8)',
+          background: 'linear-gradient(180deg, rgba(15,19,24,0.9), transparent)',
+          fontFamily: 'var(--mono)',
+          fontSize: 10,
+          color: 'var(--text3)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+        }}>
+          <span style={{
+            padding: '3px 10px',
+            background: 'rgba(0,229,160,0.1)',
+            border: '1px solid rgba(0,229,160,0.2)',
+            borderRadius: 4,
+            color: 'var(--accent)',
+            fontWeight: 700,
+          }}>{displayBids.length}</span>
+          bids · auto-refresh 5s
         </div>
-        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
-          <div style={{ position: 'relative', paddingLeft: 20 }}>
-            <div style={{ position: 'absolute', left: 6, top: 0, bottom: 0, width: 1, background: 'var(--border)' }} />
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 28px' }}>
+          <div style={{ position: 'relative', paddingLeft: 24 }}>
+            <div style={{
+              position: 'absolute',
+              left: 8,
+              top: 0,
+              bottom: 0,
+              width: 2,
+              background: 'linear-gradient(180deg, rgba(0,229,160,0.3), rgba(30,40,48,0.8))',
+              borderRadius: 2,
+            }} />
             {displayBids.sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).map((bid, i) => {
               const meta = BID_STATUS[bid.status] || BID_STATUS.pending
+              const isWinning = bid.status === 'winning' || bid.status === 'paid'
               return (
-                <div key={bid.id} style={{ position: 'relative', marginBottom: 16, animation: 'slide-in 0.2s ease', animationDelay: `${i*0.03}s`, animationFillMode: 'both' }}>
-                  <div style={{ position: 'absolute', left: -17, top: 10, width: 8, height: 8, borderRadius: '50%', background: meta.color, boxShadow: bid.status === 'winning' ? `0 0 6px ${meta.color}` : 'none' }} />
-                  <div style={{ background: 'var(--bg2)', border: `1px solid ${bid.status === 'winning' ? 'var(--accent)30' : 'var(--border)'}`, borderRadius: 'var(--r2)', padding: '12px 14px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--text)', fontWeight: 700 }}>{bid.bidder_name || shortAddr(bid.bidder_wallet)}</span>
-                        <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)' }}>rep: {bid.rep_score_snap}</span>
+                <div
+                  key={bid.id}
+                  style={{
+                    position: 'relative',
+                    marginBottom: 18,
+                    animation: 'slide-in 0.3s ease',
+                    animationDelay: `${i*0.04}s`,
+                    animationFillMode: 'both',
+                  }}
+                >
+                  <div style={{
+                    position: 'absolute',
+                    left: -20,
+                    top: 14,
+                    width: 12,
+                    height: 12,
+                    borderRadius: '50%',
+                    background: meta.color,
+                    border: '3px solid var(--bg)',
+                    boxShadow: isWinning ? `0 0 15px ${meta.color}, 0 0 30px ${meta.color}40` : `0 0 10px ${meta.color}60`,
+                    zIndex: 1,
+                  }} />
+                  <div style={{
+                    background: isWinning
+                      ? 'linear-gradient(135deg, rgba(0,229,160,0.12), rgba(0,212,255,0.08))'
+                      : 'linear-gradient(135deg, rgba(21,27,34,0.6), rgba(15,19,24,0.8))',
+                    border: `1px solid ${isWinning ? 'rgba(0,229,160,0.4)' : 'rgba(30,40,48,0.8)'}`,
+                    borderRadius: 'var(--r2)',
+                    padding: '16px 18px',
+                    transition: 'all 0.2s ease',
+                    boxShadow: isWinning ? '0 0 30px rgba(0,229,160,0.15)' : '0 0 20px rgba(0,0,0,0.2)',
+                  }}
+                    onMouseEnter={e => {
+                      if (!isWinning) {
+                        e.currentTarget.style.borderColor = 'rgba(0,229,160,0.3)';
+                        e.currentTarget.style.transform = 'translateX(2px)';
+                      }
+                    }}
+                    onMouseLeave={e => {
+                      if (!isWinning) {
+                        e.currentTarget.style.borderColor = 'rgba(30,40,48,0.8)';
+                        e.currentTarget.style.transform = 'translateX(0)';
+                      }
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span style={{
+                          fontFamily: 'var(--mono)',
+                          fontSize: 13,
+                          color: 'var(--text)',
+                          fontWeight: 700,
+                        }}>{bid.bidder_name || shortAddr(bid.bidder_wallet)}</span>
                         <span style={pill(meta.label, meta.color)}>{meta.label}</span>
                       </div>
-                      <span style={{ fontFamily: 'var(--mono)', fontSize: 16, color: 'var(--accent)', fontWeight: 700 }}>{lumens(bid.amount_stroops)} XLM</span>
+                      <span style={{
+                        fontFamily: 'var(--mono)',
+                        fontSize: 18,
+                        color: 'var(--accent)',
+                        fontWeight: 700,
+                        textShadow: '0 0 20px rgba(0,229,160,0.4)',
+                      }}>{lumens(bid.amount_stroops)} XLM</span>
                     </div>
-                    {bid.message && <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, fontStyle: 'italic' }}>"{bid.message}"</div>}
-                    <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)' }}>{ago(bid.created_at)}</div>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginBottom: 8,
+                    }}>
+                      <span style={{
+                        fontFamily: 'var(--mono)',
+                        fontSize: 9,
+                        color: 'var(--text3)',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em',
+                      }}>Reputation</span>
+                      <span style={{
+                        fontFamily: 'var(--mono)',
+                        fontSize: 12,
+                        color: bid.rep_score_snap >= 80 ? 'var(--accent)' : bid.rep_score_snap >= 60 ? 'var(--amber)' : 'var(--text2)',
+                        fontWeight: 700,
+                      }}>{bid.rep_score_snap}</span>
+                    </div>
+                    {bid.message && (
+                      <div style={{
+                        fontSize: 12,
+                        color: 'var(--text2)',
+                        marginBottom: 10,
+                        fontStyle: 'italic',
+                        padding: '10px 14px',
+                        background: 'rgba(255,255,255,0.02)',
+                        border: '1px solid rgba(30,40,48,0.6)',
+                        borderRadius: 'var(--r)',
+                        lineHeight: 1.6,
+                      }}>"{bid.message}"</div>
+                    )}
+                    <div style={{
+                      fontFamily: 'var(--mono)',
+                      fontSize: 9,
+                      color: 'var(--text3)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                    }}>
+                      <span style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: '50%',
+                        background: 'var(--text3)',
+                      }} />
+                      {ago(bid.created_at)}
+                    </div>
                   </div>
                 </div>
               )
             })}
-            {displayBids.length === 0 && <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text3)', paddingTop: 20 }}>No bids yet.</div>}
+            {displayBids.length === 0 && (
+              <div style={{
+                fontFamily: 'var(--mono)',
+                fontSize: 11,
+                color: 'var(--text3)',
+                paddingTop: 40,
+                textAlign: 'center',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 10,
+              }}>
+                <span style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  background: 'var(--text3)',
+                  opacity: 0.5,
+                }} />
+                No bids yet — agents poll every 5 minutes
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -189,35 +639,107 @@ export function Explorer() {
   const filtered = typeFilter === 'all' ? events : events.filter(e => e.type === typeFilter)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'radial-gradient(ellipse 60% 40% at 50% 0%, rgba(59,158,255,0.03), transparent 60%)' }}>
       {/* Stats row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', borderBottom: '1px solid var(--border)' }}>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(4,1fr)',
+        borderBottom: '1px solid rgba(30,40,48,0.8)',
+        background: 'linear-gradient(180deg, rgba(15,19,24,0.95), rgba(10,12,15,0.98))',
+        backdropFilter: 'blur(10px)',
+      }}>
         {[
           { label: 'Total events',  val: events.length,        color: 'var(--text)'   },
           { label: 'XLM volume',   val: `${lumens(bids.filter(b=>b.status==='paid').reduce((s,b)=>s+BigInt(b.amount_stroops||0),0n).toString())}`, color: 'var(--accent)' },
           { label: 'Unique agents', val: [...new Set(bids.map(b=>b.bidder_wallet))].length, color: 'var(--text)' },
           { label: 'IPFS delivers', val: tasks.filter(t=>t.ipfs_cid).length, color: 'var(--blue)' },
         ].map((s,i) => (
-          <div key={i} style={{ padding: '14px 20px', borderRight: i<3 ? '1px solid var(--border)' : 'none' }}>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 20, fontWeight: 700, color: s.color, marginBottom: 4 }}>{s.val}</div>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{s.label}</div>
+          <div
+            key={i}
+            style={{
+              padding: '18px 24px',
+              borderRight: i<3 ? '1px solid rgba(30,40,48,0.6)' : 'none',
+              transition: 'all 0.2s ease',
+              cursor: 'pointer',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = 'rgba(0,229,160,0.05)';
+              e.currentTarget.style.transform = 'translateY(-2px)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.transform = 'translateY(0)';
+            }}
+          >
+            <div style={{
+              fontFamily: 'var(--mono)',
+              fontSize: 24,
+              fontWeight: 700,
+              color: s.color,
+              marginBottom: 6,
+              textShadow: s.color === 'var(--accent)' ? '0 0 20px rgba(0,229,160,0.4)' : 'none',
+            }}>{s.val}</div>
+            <div style={{
+              fontFamily: 'var(--mono)',
+              fontSize: 9,
+              color: 'var(--text3)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.1em',
+            }}>{s.label}</div>
           </div>
         ))}
       </div>
 
       {/* Type filters */}
-      <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', background: 'var(--bg2)' }}>
-        {['all', ...Object.keys(TX_TYPES)].map(type => {
+      <div style={{
+        display: 'flex',
+        borderBottom: '1px solid rgba(30,40,48,0.8)',
+        background: 'linear-gradient(180deg, rgba(15,19,24,0.9), transparent)',
+        padding: '0 20px',
+      }}>
+        {['all', ...Object.keys(TX_TYPES)].map((type, i, arr) => {
           const meta = TX_TYPES[type]
+          const isActive = typeFilter === type
           return (
-            <button key={type} onClick={() => setTypeFilter(type)} style={{
-              background: typeFilter === type ? 'var(--bg3)' : 'transparent',
-              border: 'none', borderRight: '1px solid var(--border)',
-              borderBottom: typeFilter === type ? '2px solid var(--accent)' : '2px solid transparent',
-              color: typeFilter === type ? 'var(--accent)' : 'var(--text2)',
-              fontFamily: 'var(--mono)', fontSize: 10, textTransform: 'uppercase',
-              letterSpacing: '0.08em', padding: '10px 14px', whiteSpace: 'nowrap',
-            }}>
+            <button
+              key={type}
+              onClick={() => setTypeFilter(type)}
+              style={{
+                background: isActive ? 'rgba(0,229,160,0.1)' : 'transparent',
+                border: 'none',
+                borderRight: i < arr.length - 1 ? '1px solid rgba(30,40,48,0.6)' : 'none',
+                borderBottom: isActive ? '2px solid var(--accent)' : '2px solid transparent',
+                color: isActive ? 'var(--accent)' : 'var(--text2)',
+                fontFamily: 'var(--mono)',
+                fontSize: 10,
+                textTransform: 'uppercase',
+                letterSpacing: '0.1em',
+                padding: '14px 20px',
+                whiteSpace: 'nowrap',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+              }}
+              onMouseEnter={e => {
+                if (!isActive) {
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+                  e.currentTarget.style.color = 'var(--text)';
+                }
+              }}
+              onMouseLeave={e => {
+                if (!isActive) {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.color = 'var(--text2)';
+                }
+              }}
+            >
+              <span style={{
+                fontSize: 14,
+                opacity: isActive ? 1 : 0.5,
+                transition: 'opacity 0.2s ease',
+              }}>{meta?.icon}</span>
               {meta ? meta.label : 'All events'}
             </button>
           )
@@ -225,7 +747,18 @@ export function Explorer() {
       </div>
 
       {/* Column headers */}
-      <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr 100px 130px 130px 70px', padding: '8px 16px', borderBottom: '1px solid var(--border)', fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', background: 'var(--bg)' }}>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '100px 1fr 100px 130px 130px 70px',
+        padding: '12px 24px',
+        borderBottom: '1px solid rgba(0,229,160,0.2)',
+        fontFamily: 'var(--mono)',
+        fontSize: 9,
+        color: 'var(--text3)',
+        textTransform: 'uppercase',
+        letterSpacing: '0.12em',
+        background: 'linear-gradient(180deg, rgba(0,229,160,0.05), transparent)',
+      }}>
         <span>Type</span><span>Description</span><span>Value</span><span>Address</span><span>Time</span><span>Tx</span>
       </div>
 

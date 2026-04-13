@@ -1,24 +1,27 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg:      #0a0c0f;
-  --bg2:     #0f1318;
-  --bg3:     #151b22;
-  --border:  #1e2830;
-  --border2: #253040;
-  --accent:  #00e5a0;
-  --amber:   #f5a623;
-  --red:     #ff4d4d;
-  --blue:    #3b9eff;
-  --purple:  #c084fc;
-  --muted:   #4a5568;
-  --text:    #c8d6e5;
-  --text2:   #7a8fa6;
-  --text3:   #4a5a6a;
-  --mono:    'Space Mono', monospace;
-  --sans:    'DM Sans', sans-serif;
-  --r:       4px;
-  --r2:      8px;
+  --bg:       #0a0c0f;
+  --bg2:      #0f1318;
+  --bg3:      #151b22;
+  --border:   #1e2830;
+  --border2:  #253040;
+  --accent:   #00e5a0;
+  --amber:    #f5a623;
+  --red:      #ff4d4d;
+  --blue:     #3b9eff;
+  --purple:   #c084fc;
+  --cyan:     #00d4ff;
+  --muted:    #4a5568;
+  --text:     #c8d6e5;
+  --text2:    #7a8fa6;
+  --text3:    #4a5a6a;
+  --mono:     'Space Mono', monospace;
+  --sans:     'DM Sans', sans-serif;
+  --r:        6px;
+  --r2:       12px;
+  --shadow:   0 4px 24px rgba(0,0,0,0.4);
+  --glow:     0 0 40px rgba(0,229,160,0.15);
 }
 
 html, body, #root {
@@ -31,37 +34,94 @@ html, body, #root {
   overflow-x: hidden;
 }
 
+/* Animated starfield background */
 body::before {
   content: '';
   position: fixed; inset: 0;
-  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+  background-image:
+    radial-gradient(1px 1px at 20% 30%, rgba(0,229,160,0.3), transparent),
+    radial-gradient(1px 1px at 80% 70%, rgba(59,158,255,0.3), transparent),
+    radial-gradient(1px 1px at 40% 60%, rgba(192,132,252,0.2), transparent),
+    radial-gradient(1px 1px at 60% 20%, rgba(0,212,255,0.25), transparent),
+    radial-gradient(2px 2px at 10% 80%, rgba(0,229,160,0.2), transparent),
+    radial-gradient(1px 1px at 90% 40%, rgba(245,166,35,0.25), transparent);
+  animation: twinkle 8s ease-in-out infinite;
   pointer-events: none;
-  z-index: 9999;
+  z-index: 0;
 }
 
-::-webkit-scrollbar { width: 4px; height: 4px; }
-::-webkit-scrollbar-track { background: var(--bg); }
-::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(0,229,160,0.06), transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 80%, rgba(59,158,255,0.05), transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
 
-button { cursor: pointer; font-family: var(--sans); }
+/* Subtle grid overlay on dark sections */
+.grid-overlay {
+  position: relative;
+}
+.grid-overlay::before {
+  content: '';
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(30,40,48,0.5) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(30,40,48,0.5) 1px, transparent 1px);
+  background-size: 40px 40px;
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--border2), var(--border));
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+button {
+  cursor: pointer;
+  font-family: var(--sans);
+  transition: all 0.2s ease;
+}
+button:hover {
+  transform: translateY(-1px);
+}
+button:active {
+  transform: translateY(0);
+}
+
 input, textarea, select {
   font-family: var(--sans);
   background: var(--bg3);
   border: 1px solid var(--border2);
   color: var(--text);
   border-radius: var(--r);
-  padding: 8px 12px;
+  padding: 10px 14px;
   font-size: 13px;
   outline: none;
-  transition: border-color 0.15s;
+  transition: all 0.2s ease;
   width: 100%;
 }
 input:focus, textarea:focus, select:focus {
   border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0,229,160,0.1);
 }
 select option { background: var(--bg3); }
 
-@keyframes pulse-dot  { 0%,100%{opacity:1} 50%{opacity:.3} }
-@keyframes slide-in   { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+/* Animations */
+@keyframes pulse-dot  { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.9)} }
+@keyframes slide-in   { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
 @keyframes fade-in    { from{opacity:0} to{opacity:1} }
 @keyframes spin       { to{transform:rotate(360deg)} }
+@keyframes twinkle    { 0%,100%{opacity:0.6} 50%{opacity:1} }
+@keyframes float      { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+@keyframes glow-pulse { 0%,100%{box-shadow:0 0 20px rgba(0,229,160,0.2)} 50%{box-shadow:0 0 40px rgba(0,229,160,0.4)} }
+
+/* Utility classes */
+.glow-text { text-shadow: 0 0 30px currentColor; }
+.glow-border { box-shadow: 0 0 30px rgba(0,229,160,0.15); }

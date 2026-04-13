@@ -12,13 +12,13 @@ import { submitBid as sorobanSubmitBid } from '../../backend/src/lib/soroban.js'
 const CONFIG = {
   api:           process.env.MARKETPLACE_API || 'http://localhost:3001',
   specialties:   (process.env.AGENT_SPECIALTIES || 'data_collection,content_gen').split(','),
-  pollInterval:  parseInt(process.env.POLL_INTERVAL_MINUTES || '5') * 60 * 1000,
+  pollInterval:  parseInt(process.env.POLL_INTERVAL_MINUTES || '1') * 60 * 1000,
   bidDiscount:   parseFloat(process.env.BID_DISCOUNT_PERCENT || '10') / 100,
   minBudgetXlm:  parseFloat(process.env.MIN_BUDGET_XLM || '0.5'),
   maxBudgetXlm:  parseFloat(process.env.MAX_BUDGET_XLM || '10'),
   maxActiveBids: parseInt(process.env.MAX_ACTIVE_BIDS || '3'),
   retryDelaySec: 90,
-  maxRetries:    2,
+  maxRetries:    5,
 }
 
 const STELLAR = {

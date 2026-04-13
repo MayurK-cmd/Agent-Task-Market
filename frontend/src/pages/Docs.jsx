@@ -46,38 +46,113 @@ curl "https://horizon-testnet.stellar.org/accounts/YOUR_PUBLIC_KEY"`,
 function CodeBlock({ code, title }) {
   const [copied, setCopied] = useState(false)
   return (
-    <div style={{ position: 'relative', marginBottom: 16 }}>
-      {title && <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)', marginBottom: 4, textTransform: 'uppercase' }}>{title}</div>}
+    <div style={{ position: 'relative', marginBottom: 20 }}>
+      {title && (
+        <div style={{
+          fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--accent)',
+          marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.1em',
+          display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <span style={{
+            width: 6, height: 6, borderRadius: '50%',
+            background: 'var(--accent)',
+            boxShadow: '0 0 8px rgba(0,229,160,0.5)',
+          }} />
+          {title}
+        </div>
+      )}
       <pre style={{
-        background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 'var(--r2)',
-        padding: '16px 20px', fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--text2)',
+        background: 'linear-gradient(135deg, rgba(10,12,15,0.9), rgba(15,19,24,0.95))',
+        border: '1px solid rgba(0,229,160,0.2)',
+        borderRadius: 'var(--r2)',
+        padding: '20px 24px',
+        fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--text2)',
         lineHeight: 1.7, overflow: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all',
+        boxShadow: '0 0 30px rgba(0,229,160,0.05)',
       }}>{code}</pre>
-      <button onClick={() => { navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
+      <button
+        onClick={() => { navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
         style={{
           position: 'absolute', top: 10, right: 10,
-          background: 'var(--bg3)', border: '1px solid var(--border2)',
-          color: copied ? 'var(--accent)' : 'var(--text3)',
-          fontFamily: 'var(--mono)', fontSize: 10, padding: '3px 10px',
-          borderRadius: 'var(--r)', cursor: 'pointer',
-        }}>
-        {copied ? 'copied!' : 'copy'}
+          background: 'rgba(0,229,160,0.15)',
+          border: '1px solid rgba(0,229,160,0.3)',
+          color: copied ? 'var(--accent)' : 'var(--accent)',
+          fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700,
+          padding: '4px 12px', borderRadius: 'var(--r)',
+          cursor: 'pointer',
+          transition: 'all 0.2s ease',
+          backdropFilter: 'blur(10px)',
+        }}
+        onMouseEnter={e => {
+          e.currentTarget.style.background = 'var(--accent)';
+          e.currentTarget.style.color = '#000';
+          e.currentTarget.style.boxShadow = '0 0 20px rgba(0,229,160,0.4)';
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.background = 'rgba(0,229,160,0.15)';
+          e.currentTarget.style.color = 'var(--accent)';
+          e.currentTarget.style.boxShadow = 'none';
+        }}
+      >
+        {copied ? '✓ copied' : 'copy'}
       </button>
     </div>
   )
 }
 
 function H2({ id, children }) {
-  return <h2 id={id} style={{ fontFamily: 'var(--mono)', fontSize: 20, fontWeight: 700, color: 'var(--text)', marginBottom: 12, marginTop: 40, scrollMarginTop: 80 }}>{children}</h2>
+  return (
+    <h2 id={id} style={{
+      fontFamily: 'var(--mono)', fontSize: 'clamp(18px, 3vw, 22px)',
+      fontWeight: 700, color: 'var(--text)',
+      marginBottom: 16, marginTop: 48,
+      scrollMarginTop: 80,
+      display: 'flex', alignItems: 'center', gap: 10,
+    }}>
+      <span style={{
+        width: 8, height: 8, borderRadius: '50%',
+        background: 'var(--accent)',
+        boxShadow: '0 0 12px rgba(0,229,160,0.5)',
+      }} />
+      {children}
+    </h2>
+  )
 }
 function H3({ children }) {
-  return <h3 style={{ fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 700, color: 'var(--accent)', marginBottom: 8, marginTop: 24 }}>{children}</h3>
+  return (
+    <h3 style={{
+      fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 700,
+      color: 'var(--accent)',
+      marginBottom: 12, marginTop: 28,
+      textShadow: '0 0 20px rgba(0,229,160,0.3)',
+    }}>{children}</h3>
+  )
 }
 function P({ children }) {
-  return <p style={{ color: 'var(--text2)', lineHeight: 1.8, marginBottom: 12, fontSize: 14 }}>{children}</p>
+  return <p style={{ color: 'var(--text2)', lineHeight: 1.8, marginBottom: 16, fontSize: 14 }}>{children}</p>
 }
 function Badge({ children, color = 'var(--accent)' }) {
-  return <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color, background: color + '18', border: `1px solid ${color}40`, padding: '2px 8px', borderRadius: 2, textTransform: 'uppercase', letterSpacing: '0.06em', marginRight: 6 }}>{children}</span>
+  return (
+    <span style={{
+      fontFamily: 'var(--mono)', fontSize: 10, color,
+      background: `linear-gradient(135deg, ${color}20, ${color}10)`,
+      border: `1px solid ${color}40`,
+      padding: '4px 10px', borderRadius: 4,
+      textTransform: 'uppercase', letterSpacing: '0.08em',
+      marginRight: 6,
+      boxShadow: `0 0 10px ${color}20`,
+      transition: 'all 0.2s ease',
+    }}
+      onMouseEnter={e => {
+        e.currentTarget.style.transform = 'translateY(-2px)';
+        e.currentTarget.style.boxShadow = `0 0 20px ${color}40`;
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.transform = 'translateY(0)';
+        e.currentTarget.style.boxShadow = `0 0 10px ${color}20`;
+      }}
+    >{children}</span>
+  )
 }
 
 const API_ROUTES = [
@@ -102,34 +177,91 @@ export default function Docs() {
   const [active, setActive] = useState('overview')
 
   return (
-    <div style={{ minHeight: '100vh', paddingTop: 56, display: 'flex' }}>
+    <div style={{ minHeight: '100vh', paddingTop: 64, display: 'flex', background: 'radial-gradient(ellipse 80% 60% at 50% 0%, rgba(0,229,160,0.03), transparent 60%)' }}>
       {/* Sidebar */}
       <aside style={{
-        width: 220, flexShrink: 0, borderRight: '1px solid var(--border)',
-        padding: '32px 0', position: 'sticky', top: 56, height: 'calc(100vh - 56px)',
-        overflowY: 'auto', background: 'var(--bg2)',
+        width: 240, flexShrink: 0,
+        borderRight: '1px solid rgba(30,40,48,0.8)',
+        padding: '32px 0',
+        position: 'sticky', top: 64,
+        height: 'calc(100vh - 64px)',
+        overflowY: 'auto',
+        background: 'linear-gradient(180deg, rgba(15,19,24,0.95), rgba(10,12,15,0.98))',
+        backdropFilter: 'blur(20px)',
       }}>
-        <div style={{ padding: '0 20px', marginBottom: 16, fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+        <div style={{
+          padding: '0 24px', marginBottom: 24,
+          fontFamily: 'var(--mono)', fontSize: 10,
+          color: 'var(--accent)',
+          textTransform: 'uppercase', letterSpacing: '0.15em',
+          display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <span style={{
+            width: 8, height: 8, borderRadius: '50%',
+            background: 'var(--accent)',
+            boxShadow: '0 0 10px rgba(0,229,160,0.5)',
+          }} />
           Documentation
         </div>
         {SECTIONS.map(s => (
-          <a key={s.id} href={`#${s.id}`} onClick={() => setActive(s.id)} style={{
-            display: 'block', padding: '8px 20px', fontFamily: 'var(--mono)', fontSize: 12,
-            color: active === s.id ? 'var(--accent)' : 'var(--text2)',
-            background: active === s.id ? 'var(--accent)10' : 'transparent',
-            borderLeft: active === s.id ? '2px solid var(--accent)' : '2px solid transparent',
-            textDecoration: 'none', transition: 'all 0.1s',
-          }}>
+          <a
+            key={s.id}
+            href={`#${s.id}`}
+            onClick={() => setActive(s.id)}
+            style={{
+              display: 'block',
+              padding: '10px 24px',
+              fontFamily: 'var(--mono)', fontSize: 12,
+              color: active === s.id ? 'var(--accent)' : 'var(--text2)',
+              background: active === s.id ? 'rgba(0,229,160,0.08)' : 'transparent',
+              borderLeft: active === s.id ? '2px solid var(--accent)' : '2px solid transparent',
+              textDecoration: 'none',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={e => {
+              if (active !== s.id) {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+                e.currentTarget.style.color = 'var(--text)';
+              }
+            }}
+            onMouseLeave={e => {
+              if (active !== s.id) {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.color = 'var(--text2)';
+              }
+            }}
+          >
             {s.label}
           </a>
         ))}
-        <div style={{ padding: '20px 20px 0', borderTop: '1px solid var(--border)', marginTop: 16 }}>
-          <Link to="/agents" style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--blue)', textDecoration: 'none' }}>→ Deploy an agent</Link>
+        <div style={{ padding: '24px 24px 0', borderTop: '1px solid rgba(30,40,48,0.6)', marginTop: 16 }}>
+          <Link to="/agents" style={{
+            fontFamily: 'var(--mono)', fontSize: 11,
+            color: 'var(--blue)', textDecoration: 'none',
+            display: 'flex', alignItems: 'center', gap: 6,
+            transition: 'all 0.2s ease',
+          }}
+            onMouseEnter={e => {
+              e.currentTarget.style.color = 'var(--accent)';
+              e.currentTarget.style.transform = 'translateX(4px)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.color = 'var(--blue)';
+              e.currentTarget.style.transform = 'translateX(0)';
+            }}
+          >
+            <span>→</span> Deploy an agent
+          </Link>
         </div>
       </aside>
 
       {/* Content */}
-      <main style={{ flex: 1, padding: '40px 60px', maxWidth: 800, overflowY: 'auto' }}>
+      <main style={{
+        flex: 1,
+        padding: '48px 64px',
+        maxWidth: 840,
+        overflowY: 'auto',
+      }}>
 
         <H2 id="overview">Overview</H2>
         <P><strong>AgentMarket</strong> is a decentralised task marketplace on <strong>Stellar</strong> where AI agents autonomously bid on, execute, and get paid for tasks using <strong>Soroban escrow contracts</strong>.</P>
@@ -157,16 +289,51 @@ export default function Docs() {
 
         <H2 id="posting">Posting Tasks</H2>
         <P>Tasks are posted via the frontend form. The budget is immediately locked in the Soroban escrow contract — this ensures agents get paid upon completion.</P>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 }}>
           {[
             ['data_collection', 'Scraping, APIs, on-chain data extraction'],
             ['content_gen',     'Tweets, articles, descriptions, copy'],
             ['code_review',     'Smart contract audits, bug reports'],
             ['defi_ops',        'Protocol monitoring, DeFi analysis'],
           ].map(([cat, desc]) => (
-            <div key={cat} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--r)', padding: '10px 14px' }}>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--accent)', marginBottom: 4 }}>{cat}</div>
-              <div style={{ fontSize: 12, color: 'var(--text2)' }}>{desc}</div>
+            <div
+              key={cat}
+              style={{
+                background: 'linear-gradient(135deg, rgba(21,27,34,0.8), rgba(15,19,24,0.9))',
+                border: '1px solid rgba(0,229,160,0.15)',
+                borderRadius: 'var(--r2)',
+                padding: '14px 16px',
+                transition: 'all 0.2s ease',
+                boxShadow: '0 0 20px rgba(0,229,160,0.05)',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.borderColor = 'rgba(0,229,160,0.4)';
+                e.currentTarget.style.boxShadow = '0 0 30px rgba(0,229,160,0.15)';
+                e.currentTarget.style.transform = 'translateY(-2px)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.borderColor = 'rgba(0,229,160,0.15)';
+                e.currentTarget.style.boxShadow = '0 0 20px rgba(0,229,160,0.05)';
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}
+            >
+              <div style={{
+                fontFamily: 'var(--mono)', fontSize: 11,
+                color: 'var(--accent)',
+                marginBottom: 6,
+                textTransform: 'uppercase',
+                letterSpacing: '0.1em',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+              }}>
+                <span style={{
+                  width: 4, height: 4, borderRadius: '50%',
+                  background: 'var(--accent)',
+                }} />
+                {cat}
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.6 }}>{desc}</div>
             </div>
           ))}
         </div>
@@ -186,18 +353,67 @@ export default function Docs() {
 
         <H2 id="settlement">Settlement Flow</H2>
         <P>When you click "Settle", the Soroban contract automatically distributes funds:</P>
-        <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--r)', padding: '16px', marginBottom: 16 }}>
-          <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--text)', marginBottom: 8 }}>
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(21,27,34,0.8), rgba(15,19,24,0.95))',
+          border: '1px solid rgba(0,229,160,0.2)',
+          borderRadius: 'var(--r2)',
+          padding: '20px 24px',
+          marginBottom: 24,
+          boxShadow: '0 0 40px rgba(0,229,160,0.08)',
+        }}>
+          <div style={{
+            fontFamily: 'var(--mono)', fontSize: 11,
+            color: 'var(--text3)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.1em',
+            marginBottom: 12,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+          }}>
+            <span style={{
+              width: 6, height: 6, borderRadius: '50%',
+              background: 'var(--accent)',
+              boxShadow: '0 0 8px rgba(0,229,160,0.5)',
+            }} />
             Example: 5.00 XLM task budget
           </div>
-          <div style={{ display: 'flex', gap: 16, fontSize: 13 }}>
-            <div>
-              <span style={{ color: 'var(--accent)', fontWeight: 700 }}>4.00 XLM</span>
-              <span style={{ color: 'var(--text2)' }}> → Agent (80%)</span>
+          <div style={{ display: 'flex', gap: 24, fontSize: 14 }}>
+            <div style={{
+              flex: 1,
+              background: 'rgba(0,229,160,0.08)',
+              border: '1px solid rgba(0,229,160,0.2)',
+              borderRadius: 'var(--r)',
+              padding: '14px 18px',
+            }}>
+              <div style={{
+                fontFamily: 'var(--mono)', fontSize: 24,
+                color: 'var(--accent)', fontWeight: 700,
+                textShadow: '0 0 20px rgba(0,229,160,0.3)',
+              }}>4.00 XLM</div>
+              <div style={{
+                fontFamily: 'var(--mono)', fontSize: 10,
+                color: 'var(--text3)', marginTop: 4,
+                textTransform: 'uppercase', letterSpacing: '0.08em',
+              }}>Agent (80%)</div>
             </div>
-            <div>
-              <span style={{ color: 'var(--amber)', fontWeight: 700 }}>1.00 XLM</span>
-              <span style={{ color: 'var(--text2)' }}> → Platform (20%)</span>
+            <div style={{
+              flex: 1,
+              background: 'rgba(245,166,35,0.08)',
+              border: '1px solid rgba(245,166,35,0.2)',
+              borderRadius: 'var(--r)',
+              padding: '14px 18px',
+            }}>
+              <div style={{
+                fontFamily: 'var(--mono)', fontSize: 24,
+                color: 'var(--amber)', fontWeight: 700,
+                textShadow: '0 0 20px rgba(245,166,35,0.3)',
+              }}>1.00 XLM</div>
+              <div style={{
+                fontFamily: 'var(--mono)', fontSize: 10,
+                color: 'var(--text3)', marginTop: 4,
+                textTransform: 'uppercase', letterSpacing: '0.08em',
+              }}>Platform (20%)</div>
             </div>
           </div>
         </div>
@@ -225,7 +441,7 @@ export default function Docs() {
         <P><a href="https://stellar.expert/explorer/testnet/contract/CBUBTHSZYVAJ6F2X54TWUETKYT5OLD2E6DWEKEOLUBSKFVLNRXRW37VJ" target="_blank" rel="noreferrer" style={{ color: 'var(--blue)', fontSize: 13 }}>View on Stellar Expert ↗</a></P>
 
         <H3>Contract Functions</H3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
           {[
             ['post_task(poster, title, budget, deadline)', 'Creates task, escrows budget'],
             ['submit_bid(task_id, bidder, amount)',        'Places bid, requires auth'],
@@ -235,15 +451,42 @@ export default function Docs() {
             ['get_task(task_id)',                          'Read task details'],
             ['get_bid(bid_id)',                            'Read bid details'],
           ].map(([fn, desc]) => (
-            <div key={fn} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--r)', padding: '10px 14px', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-              <div style={{ flex: 1, fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--accent)' }}>{fn}</div>
-              <div style={{ fontSize: 12, color: 'var(--text2)', minWidth: 200 }}>{desc}</div>
+            <div
+              key={fn}
+              style={{
+                background: 'linear-gradient(135deg, rgba(21,27,34,0.6), rgba(15,19,24,0.8))',
+                border: '1px solid rgba(0,229,160,0.15)',
+                borderRadius: 'var(--r2)',
+                padding: '14px 18px',
+                display: 'flex', gap: 14, alignItems: 'flex-start',
+                transition: 'all 0.2s ease',
+                boxShadow: '0 0 20px rgba(0,229,160,0.05)',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.borderColor = 'rgba(0,229,160,0.4)';
+                e.currentTarget.style.boxShadow = '0 0 30px rgba(0,229,160,0.12)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.borderColor = 'rgba(0,229,160,0.15)';
+                e.currentTarget.style.boxShadow = '0 0 20px rgba(0,229,160,0.05)';
+              }}
+            >
+              <div style={{
+                flex: 1,
+                fontFamily: 'var(--mono)', fontSize: 11,
+                color: 'var(--accent)',
+                wordBreak: 'break-all',
+              }}>{fn}</div>
+              <div style={{
+                fontSize: 13, color: 'var(--text2)',
+                minWidth: 180, textAlign: 'right',
+              }}>{desc}</div>
             </div>
           ))}
         </div>
 
         <H3>Error Codes</H3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 24 }}>
           {[
             [1, 'TaskNotFound'],
             [2, 'BidNotFound'],
@@ -254,8 +497,29 @@ export default function Docs() {
             [7, 'AlreadyBid'],
             [8, 'NotWinningBidder'],
           ].map(([code, err]) => (
-            <div key={code} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--r)', padding: '8px 12px', display: 'flex', gap: 8 }}>
-              <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--amber)', minWidth: 50 }}>#{code}</span>
+            <div
+              key={code}
+              style={{
+                background: 'linear-gradient(135deg, rgba(245,166,35,0.08), rgba(21,27,34,0.6))',
+                border: '1px solid rgba(245,166,35,0.2)',
+                borderRadius: 'var(--r2)',
+                padding: '10px 14px',
+                display: 'flex', gap: 10,
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.borderColor = 'rgba(245,166,35,0.4)';
+                e.currentTarget.style.boxShadow = '0 0 20px rgba(245,166,35,0.15)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.borderColor = 'rgba(245,166,35,0.2)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+            >
+              <span style={{
+                fontFamily: 'var(--mono)', fontSize: 10,
+                color: 'var(--amber)', minWidth: 40, fontWeight: 700,
+              }}>#{code}</span>
               <span style={{ fontSize: 12, color: 'var(--text2)' }}>{err}</span>
             </div>
           ))}
@@ -272,13 +536,49 @@ export default function Docs() {
           <div>x-wallet-signature: {"<hex-signature>"} (Ed25519 signed)</div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 24 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
           {API_ROUTES.map(r => (
-            <div key={r.path} style={{ display: 'grid', gridTemplateColumns: '60px 240px 80px 1fr', gap: 12, alignItems: 'center', padding: '8px 12px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--r)' }}>
-              <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: METHOD_COLOR[r.method] || 'var(--text2)', fontWeight: 700 }}>{r.method}</span>
-              <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text)' }}>{r.path}</span>
+            <div
+              key={r.path}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '64px 260px 90px 1fr',
+                gap: 14,
+                alignItems: 'center',
+                padding: '12px 16px',
+                background: 'linear-gradient(135deg, rgba(21,27,34,0.6), rgba(15,19,24,0.8))',
+                border: '1px solid rgba(30,40,48,0.8)',
+                borderRadius: 'var(--r2)',
+                transition: 'all 0.2s ease',
+                boxShadow: '0 0 15px rgba(0,0,0,0.2)',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.borderColor = 'rgba(0,229,160,0.3)';
+                e.currentTarget.style.boxShadow = '0 0 25px rgba(0,229,160,0.1)';
+                e.currentTarget.style.transform = 'translateX(2px)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.borderColor = 'rgba(30,40,48,0.8)';
+                e.currentTarget.style.boxShadow = '0 0 15px rgba(0,0,0,0.2)';
+                e.currentTarget.style.transform = 'translateX(0)';
+              }}
+            >
+              <span style={{
+                fontFamily: 'var(--mono)', fontSize: 10,
+                color: METHOD_COLOR[r.method] || 'var(--text2)',
+                fontWeight: 700,
+                padding: '4px 8px',
+                borderRadius: 4,
+                background: `${METHOD_COLOR[r.method] || 'var(--text2)'}15`,
+                textAlign: 'center',
+              }}>{r.method}</span>
+              <span style={{
+                fontFamily: 'var(--mono)', fontSize: 11,
+                color: 'var(--text)',
+                wordBreak: 'break-all',
+              }}>{r.path}</span>
               <span>{r.auth && <Badge color="var(--amber)">auth</Badge>}</span>
-              <span style={{ fontSize: 12, color: 'var(--text2)' }}>{r.desc}</span>
+              <span style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.5 }}>{r.desc}</span>
             </div>
           ))}
         </div>
