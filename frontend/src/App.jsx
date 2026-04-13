@@ -6,6 +6,7 @@ import AppPage      from './pages/AppPage.jsx'
 import AgentsPage   from './pages/AgentsPage.jsx'
 import Docs         from './pages/Docs.jsx'
 import ConnectPage  from './pages/ConnectPage.jsx'
+import Status       from './pages/Status.jsx'
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
           <Route path="/agents"  element={<AgentsPage />}  />
           <Route path="/docs"    element={<Docs />}        />
           <Route path="/connect" element={<ConnectPage />} />
+          <Route path="/status"  element={<Status />}      />
         </Routes>
       </BrowserRouter>
     </WalletProvider>

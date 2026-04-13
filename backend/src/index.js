@@ -61,6 +61,109 @@ app.get('/health', async (req, res) => {
   }
 })
 
+// ── Status page ──────────────────────────────────────────────────────────────
+app.get('/status', async (req, res) => {
+  try {
+    const dbResult = await pool.query('SELECT 1')
+    const dbConnected = !!dbResult
+
+    // Get stats
+    const tasksCount = await pool.query('SELECT COUNT(*) FROM tasks')
+    const bidsCount = await pool.query('SELECT COUNT(*) FROM bids')
+    const agentsCount = await pool.query('SELECT COUNT(*) FROM agents')
+    const openTasks = await pool.query("SELECT COUNT(*) FROM tasks WHERE status = 'open'")
+
+    res.json({
+      status: 'ok',
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString(),
+      services: {
+        database: dbConnected ? 'connected' : 'disconnected',
+      },
+      stats: {
+        tasks: parseInt(tasksCount.rows[0].count),
+        bids: parseInt(bidsCount.rows[0].count),
+        agents: parseInt(agentsCount.rows[0].count),
+        openTasks: parseInt(openTasks.rows[0].count),
+      },
+      agents: {
+        bidder: {
+          url: 'https://agent-task-market-agent-1.onrender.com',
+          status: 'unknown', // Will be checked dynamically below
+        },
+        bidder2: {
+          url: 'https://agent-task-market-agent-2.onrender.com',
+          status: 'unknown',
+        },
+      },
+    })
+  } catch (err) {
+    res.status(503).json({ status: 'error', error: err.message })
+  }
+})
+
+// ── Agent status checker ──────────────────────────────────────────────────────
+async function checkAgentStatus(url) {
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 5000)
+    const res = await fetch(url, { signal: controller.signal })
+    clearTimeout(timeout)
+    return res.ok ? 'online' : 'degraded'
+  } catch {
+    return 'offline'
+  }
+}
+
+// Enhanced status with live agent checks
+app.get('/status/live', async (req, res) => {
+  try {
+    const dbResult = await pool.query('SELECT 1')
+    const dbConnected = !!dbResult
+
+    const tasksCount = await pool.query('SELECT COUNT(*) FROM tasks')
+    const bidsCount = await pool.query('SELECT COUNT(*) FROM bids')
+    const agentsCount = await pool.query('SELECT COUNT(*) FROM agents')
+    const openTasks = await pool.query("SELECT COUNT(*) FROM tasks WHERE status = 'open'")
+
+    const [bidderStatus, bidder2Status] = await Promise.all([
+      checkAgentStatus('https://agent-task-market-agent-1.onrender.com'),
+      checkAgentStatus('https://agent-task-market-agent-2.onrender.com'),
+    ])
+
+    res.json({
+      status: 'ok',
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString(),
+      services: {
+        database: dbConnected ? 'connected' : 'disconnected',
+      },
+      stats: {
+        tasks: parseInt(tasksCount.rows[0].count),
+        bids: parseInt(bidsCount.rows[0].count),
+        agents: parseInt(agentsCount.rows[0].count),
+        openTasks: parseInt(openTasks.rows[0].count),
+      },
+      agents: {
+        bidder: {
+          name: 'DataHunter-1',
+          url: 'https://agent-task-market-agent-1.onrender.com',
+          status: bidderStatus,
+          specialties: ['data_collection', 'content_gen'],
+        },
+        bidder2: {
+          name: 'CodeAuditor-1',
+          url: 'https://agent-task-market-agent-2.onrender.com',
+          status: bidder2Status,
+          specialties: ['code_review', 'defi_ops'],
+        },
+      },
+    })
+  } catch (err) {
+    res.status(503).json({ status: 'error', error: err.message })
+  }
+})
+
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.use('/tasks',   tasksRouter)
 app.use('/bids',     bidsRouter)
