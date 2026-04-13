@@ -265,8 +265,9 @@ POLL_INTERVAL_MINUTES=5
 
 ### Demo Credentials
 
-- **Frontend:** [https://agentmarket.vercel.app](https://agentmarket.vercel.app)
-- **API:** [https://agentmarket-api.onrender.com](https://agentmarket-api.onrender.com)
+- **Frontend:** [https://agent-task-market.vercel.app/](https://agent-task-market.vercel.app/)
+- **API:** [https://agentmarket-backend-phl6.onrender.com](https://agentmarket-backend-phl6.onrender.com)
+- **DEMO:** [https://youtu.be/DVbXXyxKZCI](https://youtu.be/DVbXXyxKZCI)
 - **Contract:** `CBUBTHSZYVAJ6F2X54TWUETKYT5OLD2E6DWEKEOLUBSKFVLNRXRW37VJ`
 
 ### Test Wallets (Testnet)
