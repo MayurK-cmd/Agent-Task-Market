@@ -1,39 +1,141 @@
 /**
  * AgentMarket Bidder Agent Runner
  * Run: node agent.js
+ *
+ * Specializes in: code_review, defi_ops
  */
 
-import { Keypair } from '@stellar/stellar-sdk'
+import {
+  SorobanRpc,
+  Keypair,
+  Networks,
+  Contract,
+  TransactionBuilder,
+  BASE_FEE,
+  nativeToScVal,
+  scValToNative,
+} from '@stellar/stellar-sdk'
 import 'dotenv/config'
 import http from 'http'
-import { submitBid as sorobanSubmitBid } from '../../backend/src/lib/soroban.js'
 
+// ── Soroban Config ────────────────────────────────────────────────────────────
+const RPC_URL = process.env.STELLAR_RPC_URL || 'https://soroban-testnet.stellar.org'
+const NETWORK_PASSPHRASE = Networks.TESTNET
+const CONTRACT_ADDRESS = process.env.SOROBAN_CONTRACT_ADDRESS || 'CC5D5U5BEBUXQFX5XRH7Q263CNWTXKKBY62SAWYF4XRY7RMEGJ6DM6PS'
 
+const server = new SorobanRpc.Server(RPC_URL, { allowHttp: RPC_URL.startsWith('http:') })
+
+/** Parse Soroban u64 result (handles Result<T,E> enums). */
+function parseResultU64(returnValue) {
+  if (!returnValue) throw new Error('No return value')
+  try {
+    const n = scValToNative(returnValue)
+    if (typeof n === 'bigint') return n
+    if (typeof n === 'number') return BigInt(n)
+    if (Array.isArray(n)) {
+      const tag = n[0]
+      if (tag === 0 || tag === 0n) {
+        const v = n[1]
+        if (v == null) throw new Error('Result value is null')
+        return typeof v === 'bigint' ? v : BigInt(v)
+      }
+      const errorMessages = {
+        1: 'Unauthorized', 2: 'Invalid parameters', 3: 'Task not found',
+        4: 'Task already exists', 5: 'Bid not found', 6: 'Invalid state',
+        7: 'Deadline passed', 8: 'Budget insufficient',
+      }
+      const errorMsg = errorMessages[tag] || `Unknown error (code: ${tag})`
+      throw new Error(`Soroban contract error: ${errorMsg}`)
+    }
+  } catch (parseErr) {
+    if (String(parseErr.message).includes('Bad union switch')) {
+      const match = String(parseErr.message).match(/Bad union switch:\s*(\d+)/)
+      const discriminant = match ? match[1] : 'unknown'
+      throw new Error(`Soroban contract error (discriminant: ${discriminant})`)
+    }
+    throw parseErr
+  }
+  throw new Error(`Unexpected return: ${JSON.stringify(returnValue)}`)
+}
+
+/** Wait for Soroban transaction confirmation. */
+async function waitForTransaction(hash, { attempts = 45, delayMs = 1000 } = {}) {
+  for (let i = 0; i < attempts; i++) {
+    const rpcResponse = await fetch(RPC_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0', id: i, method: 'getTransaction', params: { hash },
+      }),
+    })
+    const rpcData = await rpcResponse.json()
+    if (rpcData.error) {
+      if (rpcData.error.code === -32000) { await new Promise(r => setTimeout(r, delayMs)); continue }
+      throw new Error(`RPC error: ${rpcData.error.message}`)
+    }
+    const result = rpcData.result
+    if (!result) { await new Promise(r => setTimeout(r, delayMs)); continue }
+    if (result.status === 'SUCCESS') return { status: 'SUCCESS', txHash: hash }
+    if (result.status === 'FAILED') throw new Error(`Transaction ${hash} failed`)
+    await new Promise(r => setTimeout(r, delayMs))
+  }
+  throw new Error(`Timeout waiting for transaction ${hash}`)
+}
+
+/** Submit bid on-chain via Soroban. */
+async function submitBidOnChain(secretKey, taskId, amountStroops) {
+  const keypair = Keypair.fromSecret(secretKey)
+  const bidder = keypair.publicKey()
+  const tid = typeof taskId === 'bigint' ? taskId : BigInt(taskId)
+  const amt = typeof amountStroops === 'bigint' ? amountStroops : BigInt(amountStroops)
+
+  const account = await server.getAccount(bidder)
+  const contract = new Contract(CONTRACT_ADDRESS)
+  const op = contract.call('submit_bid', nativeToScVal(tid, { type: 'u64' }), nativeToScVal(bidder, { type: 'address' }), nativeToScVal(amt, { type: 'i128' }))
+
+  let tx = new TransactionBuilder(account, { fee: BASE_FEE, networkPassphrase: NETWORK_PASSPHRASE })
+    .addOperation(op).setTimeout(30).build()
+
+  tx = await server.prepareTransaction(tx)
+  const sim = await server.simulateTransaction(tx)
+  if (sim.error) throw new Error(`Simulation failed: ${sim.error}`)
+
+  let bidId = null
+  if (sim.result?.retval) {
+    try { bidId = parseResultU64(sim.result.retval) } catch (e) { console.log('[submitBid] Parse result:', e.message) }
+  }
+
+  tx.sign(keypair)
+  const send = await server.sendTransaction(tx)
+  if (send.status === 'ERROR') throw new Error(`Send failed: ${JSON.stringify(send)}`)
+
+  await waitForTransaction(send.hash)
+  return { txHash: send.hash, bidId }
+}
+
+// ── Agent Config ──────────────────────────────────────────────────────────────
 const CONFIG = {
   api:           process.env.MARKETPLACE_API || 'http://localhost:3001',
+  privateKey:    process.env.AGENT_PRIVATE_KEY,
   specialties:   (process.env.AGENT_SPECIALTIES || 'data_collection,content_gen').split(','),
-  pollInterval:  parseInt(process.env.POLL_INTERVAL_MINUTES || '1') * 60 * 1000,
+  pollInterval:  parseInt(process.env.POLL_INTERVAL_MINUTES || '5') * 60 * 1000,
   bidDiscount:   parseFloat(process.env.BID_DISCOUNT_PERCENT || '10') / 100,
   minBudgetXlm:  parseFloat(process.env.MIN_BUDGET_XLM || '0.5'),
   maxBudgetXlm:  parseFloat(process.env.MAX_BUDGET_XLM || '10'),
   maxActiveBids: parseInt(process.env.MAX_ACTIVE_BIDS || '3'),
   retryDelaySec: 90,
-  maxRetries:    5,
+  maxRetries:    2,
 }
 
-const STELLAR = {
-  secretKey: process.env.STELLAR_SECRET_KEY,
-  publicKey: process.env.STELLAR_PUBLIC_KEY,
-}
-
-if (!STELLAR.secretKey) { console.error('STELLAR_SECRET_KEY not set'); process.exit(1) }
-const wallet = Keypair.fromSecret(STELLAR.secretKey)
+if (!CONFIG.privateKey) { console.error('AGENT_PRIVATE_KEY not set'); process.exit(1) }
+const keypair = Keypair.fromSecret(CONFIG.privateKey)
+const walletAddress = keypair.publicKey()
 
 console.log(`\n╔══════════════════════════════════════════╗`)
 console.log(`║   AgentMarket Bidder Agent               ║`)
-console.log(`║   OpenClaw-compatible runner             ║`)
+console.log(`║   Stellar-native runner                  ║`)
 console.log(`╚══════════════════════════════════════════╝\n`)
-console.log(`🤖 Agent wallet: ${wallet.publicKey()}`)
+console.log(`🤖 Agent wallet: ${walletAddress}`)
 console.log(`📡 API: ${CONFIG.api}`)
 console.log(`🎯 Specialties: ${CONFIG.specialties.join(', ')}`)
 console.log(`🔁 Retry: ${CONFIG.maxRetries}x after ${CONFIG.retryDelaySec}s\n`)
@@ -43,10 +145,10 @@ const inProgress = new Map()
 
 async function authHeaders() {
   const message   = `AgentMarket:${crypto.randomUUID()}:${Date.now()}`
-  const signature = wallet.sign(Buffer.from(message)).toString('hex')
+  const signature = keypair.sign(Buffer.from(message)).toString('hex')
   return {
     'Content-Type':       'application/json',
-    'x-wallet-address':   wallet.publicKey(),
+    'x-wallet-address':   walletAddress,
     'x-wallet-message':   message,
     'x-wallet-signature': signature,
   }
@@ -68,7 +170,6 @@ async function apiPost(path, data) {
   return { status: res.status, body }
 }
 
-// No contract needed - using Stellar-only backend
 
 // ── Gemini 2.5 Flash ──────────────────────────────────────────────────────────
 async function callGemini(systemPrompt, userPrompt) {
@@ -126,8 +227,8 @@ async function submitBid(task) {
   const messages = {
     data_collection: `I specialise in structured data extraction on Stellar. Clean JSON delivery within 30 minutes.`,
     content_gen:     `I generate high-quality Web3 content for the Stellar ecosystem. Delivery within 20 minutes.`,
-    code_review:     `Senior smart contract auditor. Vulnerabilities, logic flaws, and risky patterns. Delivery within 1 hour.`,
-    defi_ops:        `Stellar DeFi analyst. Verified structured report within 15 minutes.`,
+    code_review:     `Senior Soroban security auditor. I'll review your contract for authorization issues, reentrancy vulnerabilities, and Stroops handling. Delivery within 1 hour with detailed findings.`,
+    defi_ops:        `Stellar DeFi analyst with expertise in on-chain data and protocol monitoring. I'll fetch verified data from multiple sources and deliver a structured report within 30 minutes.`,
   }
   const message = messages[task.category] || 'Ready to complete this task efficiently.'
 
@@ -141,14 +242,12 @@ async function submitBid(task) {
   let txHash = null
   let chainBidId = null
   try {
-    const onChain = await sorobanSubmitBid(STELLAR.secretKey, task.chain_task_id, bidAmountStroops)
+    const onChain = await submitBidOnChain(CONFIG.privateKey, task.chain_task_id, bidAmountStroops)
     txHash = onChain.txHash
     chainBidId = onChain.bidId.toString()
-    log('bid', `Soroban submit_bid tx ${txHash} bid id ${chainBidId}`)
+    log('bid', `Soroban submit_bid tx ${txHash.slice(0, 12)}... bid id ${chainBidId}`)
   } catch (err) {
-    log('bid', `❌ Soroban bid failed: ${err.message || err}`)
-    log('bid', `Full error: ${JSON.stringify(err)}`)
-    console.error('[submitBid] Full error:', err)
+    log('bid', `❌ Soroban bid failed: ${err.message}`)
     return
   }
 
@@ -307,12 +406,9 @@ async function submitWork(task, deliverable) {
   const headers = await authHeaders()
 
   // Generate x402 payment signature with Stellar
-  if (STELLAR.secretKey) {
-    const keypair = Keypair.fromSecret(STELLAR.secretKey)
-    const message = `x402:0:verify-task-${task.id}:${Date.now()}`
-    const signature = keypair.sign(Buffer.from(message)).toString('hex')
-    headers['payment-signature'] = `${keypair.publicKey()}:${signature}:${message}`
-  }
+  const message = `x402:0:verify-task-${task.id}:${Date.now()}`
+  const signature = keypair.sign(Buffer.from(message)).toString('hex')
+  headers['payment-signature'] = `${walletAddress}:${signature}:${message}`
 
   const res = await fetch(`${CONFIG.api}/verify`, {
     method: 'POST',
