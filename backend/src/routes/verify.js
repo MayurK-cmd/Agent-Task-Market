@@ -92,7 +92,7 @@ router.get('/stats', async (req, res) => {
         (SELECT COUNT(*) FROM tasks WHERE status = 'completed')::int       AS completed_tasks,
         (SELECT COUNT(*) FROM agents WHERE is_online = TRUE)::int          AS online_agents,
         (SELECT COUNT(*) FROM agents)::int                                 AS total_agents,
-        (SELECT COALESCE(SUM(amount_wei), 0) FROM bids WHERE status='paid') AS total_volume_wei,
+        (SELECT COALESCE(SUM(amount_stroops), 0) FROM bids WHERE status='paid') AS total_volume_stroops,
         (SELECT COUNT(*) FROM bids)::int                                   AS total_bids
     `)
     res.json({ stats })

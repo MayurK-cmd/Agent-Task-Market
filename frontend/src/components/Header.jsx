@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useWallet } from '../hooks/useWallet.jsx'
 import { useStats }  from '../hooks/useMarketPlace.js'
-import { shortAddr, cusd } from '../lib/config.js'
+import { shortAddr, lumens } from '../lib/config.js'
 
 const S = {
   header: { borderBottom: '1px solid var(--border)', background: 'var(--bg)', position: 'sticky', top: 0, zIndex: 100 },
@@ -30,7 +30,7 @@ export default function Header({ activeTab, onTabChange }) {
     { label: 'online agents', val: stats.online_agents,  accent: true  },
     { label: 'open tasks',    val: stats.open_tasks,     accent: true  },
     { label: 'total bids',    val: stats.total_bids,     accent: false },
-    { label: 'volume',        val: `${cusd(stats.total_volume_wei)} XLM`, accent: false },
+    { label: 'volume',        val: `${lumens(stats.total_volume_wei)} XLM`, accent: false },
     { label: 'network',       val: 'Stellar Testnet',     accent: false },
   ] : []
 

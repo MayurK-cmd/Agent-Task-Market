@@ -1,7 +1,13 @@
 import { Router } from 'express'
+import { Keypair } from '@stellar/stellar-sdk'
 import { query, queryOne } from '../lib/db.js'
 import { sendPayment } from '../lib/stellar.js'
-import { postTask, settleTask as settleOnChain } from '../lib/soroban.js'
+import {
+  postTask,
+  settleTask as settleOnChain,
+  verifyPostTaskTx,
+} from '../lib/soroban.js'
+import { stellarAddressesEqual } from '../lib/stellarAddr.js'
 import { requireWalletAuth } from '../middleware/auth.js'
 
 const router = Router()
@@ -32,7 +38,7 @@ router.get('/', async (req, res) => {
       SELECT
         t.*,
         COUNT(b.id)::int          AS bid_count,
-        MIN(b.amount_wei)::bigint AS lowest_bid
+        MIN(b.amount_stroops)::bigint AS lowest_bid
       FROM tasks t
       LEFT JOIN bids b ON b.task_id = t.id AND b.status != 'rejected'
       ${where}
@@ -62,7 +68,7 @@ router.get('/:id', async (req, res) => {
        FROM bids b
        LEFT JOIN agents a ON a.wallet = b.bidder_wallet
        WHERE b.task_id = $1
-       ORDER BY b.amount_wei ASC`,
+       ORDER BY b.amount_stroops ASC`,
       [req.params.id]
     )
 
@@ -78,13 +84,13 @@ router.get('/:id', async (req, res) => {
 router.post('/', requireWalletAuth, async (req, res) => {
   try {
     const {
-      title, description, category, budget_wei,
-      deadline, min_rep_score = 0,
+      title, description, category, budget_stroops,
+      deadline, min_rep_score = 0, tx_hash: clientTxHash,
     } = req.body
 
-    if (!title || !category || !budget_wei || !deadline) {
+    if (!title || !category || !budget_stroops || !deadline) {
       return res.status(400).json({
-        error: 'Required: title, category, budget_wei, deadline',
+        error: 'Required: title, category, budget_stroops, deadline',
       })
     }
 
@@ -93,13 +99,34 @@ router.post('/', requireWalletAuth, async (req, res) => {
       return res.status(400).json({ error: `category must be one of: ${VALID_CATEGORIES.join(', ')}` })
     }
 
-    // Post to Soroban contract (escrow)
-    const sorobanResult = await postTask(
-      process.env.STELLAR_SECRET_KEY,
-      title,
-      budget_wei,
-      new Date(deadline).getTime()
+    const platformPub = Keypair.fromSecret(process.env.STELLAR_SECRET_KEY).publicKey()
+
+    let sorobanResult
+    if (clientTxHash) {
+      sorobanResult = await verifyPostTaskTx(clientTxHash, req.wallet)
+    } else if (stellarAddressesEqual(req.wallet, platformPub)) {
+      sorobanResult = await postTask(
+        process.env.STELLAR_SECRET_KEY,
+        title,
+        budget_stroops,
+        new Date(deadline).getTime()
+      )
+    } else {
+      return res.status(400).json({
+        error:
+          'Soroban post_task must be signed by your wallet. Submit the on-chain transaction first, then POST with tx_hash (see API docs).',
+      })
+    }
+
+    const dup = await queryOne(
+      'SELECT id FROM tasks WHERE tx_hash = $1 OR chain_task_id = $2',
+      [sorobanResult.txHash, sorobanResult.chainTaskId.toString()]
     )
+    if (dup) {
+      return res.status(409).json({ error: 'This on-chain task is already registered' })
+    }
+
+    const chainTaskId = (sorobanResult.chainTaskId ?? sorobanResult.taskId).toString()
 
     // Upsert poster
     await query(`
@@ -112,12 +139,12 @@ router.post('/', requireWalletAuth, async (req, res) => {
     // Create task in DB
     const task = await queryOne(`
       INSERT INTO tasks
-        (title, description, category, budget_wei, deadline, min_rep_score,
+        (title, description, category, budget_stroops, deadline, min_rep_score,
          poster_wallet, chain_task_id, tx_hash)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
       RETURNING *
-    `, [title, description, category, budget_wei, deadline, min_rep_score,
-        req.wallet, sorobanResult.taskId, sorobanResult.txHash])
+    `, [title, description, category, budget_stroops, deadline, min_rep_score,
+        req.wallet, chainTaskId, sorobanResult.txHash])
 
     await query(`
       INSERT INTO transactions (type, task_id, from_wallet, tx_hash, meta)
@@ -154,28 +181,27 @@ router.patch('/:id/settle', requireWalletAuth, async (req, res) => {
     if (!agent?.stellar_pub) {
       return res.status(400).json({ error: 'Agent has no Stellar wallet' })
     }
+    if (task.chain_task_id == null) {
+      return res.status(400).json({ error: 'Task has no chain_task_id; cannot settle on Soroban' })
+    }
 
-    // Calculate split (80% agent, 20% platform)
-    const platformFee = BigInt(task.budget_wei) * 2000n / 10000n
-    const agentPayout = BigInt(task.budget_wei) - platformFee
+    // Calculate split (80% agent, 20% platform) - for record keeping
+    // Actual token transfers happen on-chain in the Soroban contract
+    const platformFee = BigInt(task.budget_stroops) * 2000n / 10000n
+    const agentPayout = BigInt(task.budget_stroops) - platformFee
 
-    // Settle on Soroban contract (releases escrow)
+    // Settle on Soroban contract - this transfers funds from escrow to agent and platform
     const sorobanResult = await settleOnChain(
       process.env.STELLAR_SECRET_KEY,
-      task.chain_task_id,
-      process.env.STELLAR_PUBLIC_KEY,
+      BigInt(task.chain_task_id),
+      Keypair.fromSecret(process.env.STELLAR_SECRET_KEY).publicKey(),
       2000
     )
 
-    // Send Stellar payment to agent
-    const paymentResult = await sendPayment(
-      process.env.STELLAR_SECRET_KEY,
-      agent.stellar_pub,
-      agentPayout.toString()
-    )
-
-    if (!paymentResult.success) {
-      return res.status(500).json({ error: 'Stellar payment failed: ' + paymentResult.error })
+    // Payment is now handled by the Soroban contract escrow
+    const paymentResult = {
+      txHash: sorobanResult.txHash,
+      asset: 'XLM',
     }
 
     // Mark task complete
@@ -189,7 +215,7 @@ router.patch('/:id/settle', requireWalletAuth, async (req, res) => {
     // Mark winning bid as paid
     await query(
       `UPDATE bids SET status = 'paid', tx_hash = $1 WHERE id = $2`,
-      [paymentResult.txHash, winning_bid_id]
+      [sorobanResult.txHash, winning_bid_id]
     )
 
     // Mark other bids as outbid
@@ -207,19 +233,25 @@ router.patch('/:id/settle', requireWalletAuth, async (req, res) => {
 
     // Log settlement
     await query(`
-      INSERT INTO transactions (type, task_id, bid_id, from_wallet, to_wallet, amount_wei, tx_hash, meta)
+      INSERT INTO transactions (type, task_id, bid_id, from_wallet, to_wallet, amount_stroops, tx_hash, meta)
       VALUES ('task_settled', $1, $2, $3, $4, $5, $6, $7)
-    `, [task.id, winning_bid_id, req.wallet, agent.stellar_pub, agentPayout, paymentResult.txHash,
-        JSON.stringify({ ipfs_cid, stellarTx: true })])
+    `, [task.id, winning_bid_id, req.wallet, agent.stellar_pub, agentPayout, sorobanResult.txHash,
+        JSON.stringify({ ipfs_cid, onChain: true })])
 
     res.json({
       task: updated,
+      soroban: {
+        settle_tx_hash: sorobanResult.txHash,
+        agent_payout: agentPayout.toString(),
+        platform_fee: platformFee.toString(),
+      },
       payment: {
         agent_payout: agentPayout.toString(),
         platform_fee: platformFee.toString(),
-        tx_hash: paymentResult.txHash,
-        asset: paymentResult.asset,
-      }
+        tx_hash: sorobanResult.txHash,
+        asset: 'XLM',
+        note: 'Paid via Soroban escrow contract',
+      },
     })
   } catch (err) {
     console.error('[PATCH /tasks/:id/settle]', err)

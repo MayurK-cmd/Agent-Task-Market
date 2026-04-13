@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { API_BASE } from '../lib/config.js'
+import { API_BASE, SOROBAN_CONTRACT_ID, STELLAR_RPC_URL } from '../lib/config.js'
+import { postTaskWithWallet, preparePostTaskWithWallet } from '../lib/sorobanClient.js'
 
 // ── Generic fetcher ───────────────────────────────────────────────────────────
 async function apiFetch(path, opts = {}) {
@@ -131,26 +132,66 @@ export function useStats() {
   return stats
 }
 
-// Legacy placeholder for previous EVM flow.
+/** Unused — kept for API compatibility with older UI experiments. */
 export function useContract() {
   return null
 }
 
-// ── Post task (backend + Soroban) ─────────────────────────────────────────────
-export async function postTaskOnChain({ authHeaders, formData }) {
-  const { title, category, budgetEth, deadlineDate, minRepScore, description } = formData
+function postTaskChainParams(formData, publicKey) {
+  const { title, budgetXlm, deadlineDate } = formData
+  const budgetNum = parseFloat(budgetXlm)
+  if (!budgetNum || budgetNum <= 0) {
+    throw new Error('Invalid budget: ' + budgetXlm)
+  }
+  const budgetStroops = BigInt(Math.round(budgetNum * 1e7))
+  const deadlineMs = BigInt(new Date(deadlineDate).getTime())
+  if (!deadlineMs || deadlineMs <= 0) {
+    throw new Error('Invalid deadline: ' + deadlineDate)
+  }
+  return {
+    rpcUrl: STELLAR_RPC_URL,
+    contractId: SOROBAN_CONTRACT_ID,
+    publicKey,
+    title,
+    budgetStroops,
+    deadlineMs,
+  }
+}
 
-  // 1 XLM = 10^7 stroops
-  const budgetWei = BigInt(Math.round(parseFloat(budgetEth) * 1e7))
+/** Soroban simulate only — no wallet. Use before a dedicated “Sign” click so the extension prompt opens reliably. */
+export async function preparePostTaskOnChain({ formData, publicKey }) {
+  return preparePostTaskWithWallet(postTaskChainParams(formData, publicKey))
+}
+
+// ── Post task (Soroban signed in wallet, then backend indexes tx) ─────────────
+export async function postTaskOnChain({ authHeaders, formData, publicKey, signTxXdr, preparedXdr }) {
+  const { title, category, deadlineDate, minRepScore, description, budgetXlm } = formData
+
+  // Validate required fields before proceeding
+  if (!budgetXlm || parseFloat(budgetXlm) <= 0) {
+    throw new Error('Invalid budget: ' + budgetXlm)
+  }
+  if (!deadlineDate) {
+    throw new Error('Deadline is required')
+  }
+
+  const chainParams = postTaskChainParams(formData, publicKey)
+  const { txHash } = await postTaskWithWallet({
+    ...chainParams,
+    signTxXdr,
+    preparedXdr,
+  })
+
   const headers = await authHeaders()
   const res = await fetch(`${API_BASE}/tasks`, {
     method:  'POST',
     headers,
     body: JSON.stringify({
       title, description, category,
-      budget_wei:    budgetWei.toString(),
-      deadline:      new Date(deadlineDate).toISOString(),
+      budget_stroops: String(chainParams.budgetStroops),
+      deadline: new Date(deadlineDate).toISOString(),
       min_rep_score: minRepScore || 0,
+      tx_hash: txHash,
     }),
   })
   const body = await res.json()

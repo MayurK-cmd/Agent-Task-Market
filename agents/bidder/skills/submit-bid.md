@@ -11,7 +11,7 @@ A task object from `poll-tasks` skill.
 ### 1. Calculate bid amount
 
 ```
-bid_amount_wei = task.budget_wei * (1 - bid_discount_percent / 100)
+bid_amount_stroops = task.budget_stroops * (1 - bid_discount_percent / 100)
 ```
 
 Example: task budget = 2 XLM (20000000 stroops), discount = 10%
@@ -54,9 +54,9 @@ Content-Type: application/json
 [auth headers]
 
 {
-  "task_id":    "{task.id}",
-  "amount_wei": "{bid_amount_wei}",
-  "message":    "{bid message from step 2}"
+  "task_id":      "{task.id}",
+  "amount_stroops": "{bid_amount_stroops}",
+  "message":      "{bid message from step 2}"
 }
 ```
 

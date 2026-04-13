@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAgents, useBids, useTasks } from '../hooks/useMarketPlace.js'
-import { CATEGORY_COLORS, EXPLORER, shortAddr, ago, cusd } from '../lib/config.js'
+import { CATEGORY_COLORS, EXPLORER, shortAddr, ago, lumens } from '../lib/config.js'
 
 // ── Shared styles ─────────────────────────────────────────────────────────────
 const pill = (label, color) => ({
@@ -61,7 +61,7 @@ export function Leaderboard() {
               <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)' }}>tasks done</div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--accent)', fontWeight: 700 }}>{cusd(agent.total_earned)}</div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--accent)', fontWeight: 700 }}>{lumens(agent.total_earned)}</div>
               <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)' }}>XLM earned</div>
             </div>
             <a href={`${EXPLORER}/address/${agent.wallet}`} target="_blank" rel="noreferrer"
@@ -121,7 +121,7 @@ export function BidActivity() {
         {taskWithBids.map(t => (
           <div key={t.id} onClick={() => setSelected(t.id)} style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', cursor: 'pointer', background: selected === t.id ? 'var(--bg3)' : 'transparent', borderLeft: selected === t.id ? '2px solid var(--accent)' : '2px solid transparent' }}>
             <div style={{ fontSize: 12, color: 'var(--text)', marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)' }}>{bids.filter(b => b.task_id === t.id).length} bids · {cusd(t.budget_wei)} XLM</div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)' }}>{bids.filter(b => b.task_id === t.id).length} bids · {lumens(t.budget_stroops)} XLM</div>
           </div>
         ))}
       </div>
@@ -146,7 +146,7 @@ export function BidActivity() {
                         <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)' }}>rep: {bid.rep_score_snap}</span>
                         <span style={pill(meta.label, meta.color)}>{meta.label}</span>
                       </div>
-                      <span style={{ fontFamily: 'var(--mono)', fontSize: 16, color: 'var(--accent)', fontWeight: 700 }}>{cusd(bid.amount_wei)} XLM</span>
+                      <span style={{ fontFamily: 'var(--mono)', fontSize: 16, color: 'var(--accent)', fontWeight: 700 }}>{lumens(bid.amount_stroops)} XLM</span>
                     </div>
                     {bid.message && <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, fontStyle: 'italic' }}>"{bid.message}"</div>}
                     <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)' }}>{ago(bid.created_at)}</div>
@@ -180,9 +180,9 @@ export function Explorer() {
 
   // Build event log from tasks + bids
   const events = [
-    ...tasks.map(t => ({ id: `p-${t.id}`, type: 'task_posted',   desc: t.title,              ts: t.created_at, txHash: t.tx_hash,  addr: t.poster_wallet, value: t.budget_wei })),
-    ...bids.map(b  => ({ id: `b-${b.id}`, type: 'bid_submitted', desc: b.bidder_name || shortAddr(b.bidder_wallet), ts: b.created_at, txHash: b.tx_hash, addr: b.bidder_wallet, value: b.amount_wei })),
-    ...tasks.filter(t => t.status === 'completed').map(t => ({ id: `s-${t.id}`, type: 'task_settled', desc: t.title, ts: t.updated_at, txHash: t.tx_hash, addr: t.poster_wallet, value: t.budget_wei })),
+    ...tasks.map(t => ({ id: `p-${t.id}`, type: 'task_posted',   desc: t.title,              ts: t.created_at, txHash: t.tx_hash,  addr: t.poster_wallet, value: t.budget_stroops })),
+    ...bids.map(b  => ({ id: `b-${b.id}`, type: 'bid_submitted', desc: b.bidder_name || shortAddr(b.bidder_wallet), ts: b.created_at, txHash: b.tx_hash, addr: b.bidder_wallet, value: b.amount_stroops })),
+    ...tasks.filter(t => t.status === 'completed').map(t => ({ id: `s-${t.id}`, type: 'task_settled', desc: t.title, ts: t.updated_at, txHash: t.tx_hash, addr: t.poster_wallet, value: t.budget_stroops })),
     ...tasks.filter(t => t.ipfs_cid).map(t => ({ id: `i-${t.id}`, type: 'ipfs_submitted', desc: t.ipfs_cid, ts: t.updated_at, txHash: null, addr: null, value: null })),
   ].sort((a,b) => new Date(b.ts) - new Date(a.ts))
 
@@ -194,7 +194,7 @@ export function Explorer() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', borderBottom: '1px solid var(--border)' }}>
         {[
           { label: 'Total events',  val: events.length,        color: 'var(--text)'   },
-          { label: 'XLM volume',   val: `${cusd(bids.filter(b=>b.status==='paid').reduce((s,b)=>s+BigInt(b.amount_wei||0),0n).toString())}`, color: 'var(--accent)' },
+          { label: 'XLM volume',   val: `${lumens(bids.filter(b=>b.status==='paid').reduce((s,b)=>s+BigInt(b.amount_stroops||0),0n).toString())}`, color: 'var(--accent)' },
           { label: 'Unique agents', val: [...new Set(bids.map(b=>b.bidder_wallet))].length, color: 'var(--text)' },
           { label: 'IPFS delivers', val: tasks.filter(t=>t.ipfs_cid).length, color: 'var(--blue)' },
         ].map((s,i) => (
@@ -247,7 +247,7 @@ export function Explorer() {
                 <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: meta.color, textTransform: 'uppercase' }}>{meta.label}</span>
               </div>
               <span style={{ fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.desc}</span>
-              <span style={{ fontFamily: 'var(--mono)', fontSize: 12, color: ev.value ? 'var(--accent)' : 'var(--text3)', fontWeight: ev.value ? 700 : 400 }}>{ev.value ? `${cusd(ev.value)}` : '—'}</span>
+              <span style={{ fontFamily: 'var(--mono)', fontSize: 12, color: ev.value ? 'var(--accent)' : 'var(--text3)', fontWeight: ev.value ? 700 : 400 }}>{ev.value ? `${lumens(ev.value)}` : '—'}</span>
               <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text2)' }}>{shortAddr(ev.addr)}</span>
               <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text3)' }}>{ago(ev.ts)}</span>
               {ev.txHash

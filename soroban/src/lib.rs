@@ -5,6 +5,10 @@
 use soroban_sdk::{
     contract, contractimpl, contracterror, contracttype, Address, Env, String,
 };
+use soroban_sdk::token::Client as TokenClient;
+
+// Native XLM token contract address on Stellar testnet
+const NATIVE_TOKEN_ADDRESS: &str = "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -64,6 +68,7 @@ pub struct AgentMarketEscrow;
 #[contractimpl]
 impl AgentMarketEscrow {
     /// Post a new task with escrowed payment
+    /// Transfers budget from poster to contract escrow
     pub fn post_task(
         env: Env,
         poster: Address,
@@ -72,6 +77,19 @@ impl AgentMarketEscrow {
         deadline: u64,
     ) -> Result<u64, Error> {
         poster.require_auth();
+
+        if budget <= 0 {
+            return Err(Error::InsufficientFunds);
+        }
+
+        // Get native token contract
+        let token_contract_address = Address::from_string(
+            &String::from_str(&env, NATIVE_TOKEN_ADDRESS)
+        );
+        let token = TokenClient::new(&env, &token_contract_address);
+
+        // Transfer budget from poster to this contract (escrow)
+        token.transfer(&poster, &env.current_contract_address(), &budget);
 
         let task_id: u64 = env
             .storage()
@@ -173,6 +191,7 @@ impl AgentMarketEscrow {
     }
 
     /// Settle task — pay winning bidder minus platform commission
+    /// Transfers agent payout to bidder and platform fee to platform
     pub fn settle_task(
         env: Env,
         task_id: u64,
@@ -191,14 +210,21 @@ impl AgentMarketEscrow {
             return Err(Error::TaskNotOpen);
         }
 
-        let _bidder = task.winning_bidder.clone().ok_or(Error::NotWinningBidder)?;
+        let bidder = task.winning_bidder.clone().ok_or(Error::NotWinningBidder)?;
         let platform_fee = task.winning_amount * commission_bps / 10000;
-        let _agent_payout = task.winning_amount - platform_fee;
+        let agent_payout = task.winning_amount - platform_fee;
 
-        // In production, perform actual token transfers:
-        // let token = token::Client::new(&env, &token_address);
-        // token.transfer(&env.current_contract_address(), &_bidder, &_agent_payout);
-        // token.transfer(&env.current_contract_address(), &platform, &platform_fee);
+        // Get native token contract
+        let token_contract_address = Address::from_string(
+            &String::from_str(&env, NATIVE_TOKEN_ADDRESS)
+        );
+        let token = TokenClient::new(&env, &token_contract_address);
+
+        // Transfer agent payout from escrow to bidder
+        token.transfer(&env.current_contract_address(), &bidder, &agent_payout);
+
+        // Transfer platform fee from escrow to platform
+        token.transfer(&env.current_contract_address(), &platform, &platform_fee);
 
         task.status = TaskStatus::Completed;
         env.storage().instance().set(&DataKey::Task(task_id), &task);

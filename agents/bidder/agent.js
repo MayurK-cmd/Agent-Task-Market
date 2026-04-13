@@ -6,6 +6,7 @@
 import { Keypair } from '@stellar/stellar-sdk'
 import 'dotenv/config'
 import http from 'http'
+import { submitBid as sorobanSubmitBid } from '../../backend/src/lib/soroban.js'
 
 
 const CONFIG = {
@@ -103,25 +104,25 @@ async function pollTasks() {
     if (activeBids.has(t.id))                       return false
     if (activeBids.size >= CONFIG.maxActiveBids)    return false
     if (new Date(t.deadline) < new Date())          return false
-    const b = Number(BigInt(t.budget_wei)) / 1e7  // Stellar stroops (1 XLM = 10^7)
+    const b = Number(BigInt(t.budget_stroops)) / 1e7  // Stellar stroops (1 XLM = 10^7)
     return b >= CONFIG.minBudgetXlm && b <= CONFIG.maxBudgetXlm
   })
 
   if (!eligible.length) { log('poll', 'No eligible tasks after filtering'); return }
 
   const best = eligible
-    .map(t => ({ task: t, score: (Number(BigInt(t.budget_wei)) / 1e7) - (t.bid_count * 0.1) }))
+    .map(t => ({ task: t, score: (Number(BigInt(t.budget_stroops)) / 1e7) - (t.bid_count * 0.1) }))
     .sort((a, b) => b.score - a.score)[0].task
 
-  log('poll', `Best task: "${best.title}" (${(Number(BigInt(best.budget_wei))/1e7).toFixed(2)} XLM)`)
+  log('poll', `Best task: "${best.title}" (${(Number(BigInt(best.budget_stroops))/1e7).toFixed(2)} XLM)`)
   await submitBid(best)
 }
 
 // ── Submit bid ────────────────────────────────────────────────────────────────
 async function submitBid(task) {
-  const budgetWei    = BigInt(task.budget_wei)
-  const discountBps  = BigInt(Math.floor(CONFIG.bidDiscount * 10000))
-  const bidAmountWei = budgetWei - (budgetWei * discountBps / 10000n)
+  const budgetStroops    = BigInt(task.budget_stroops)
+  const discountBps      = BigInt(Math.floor(CONFIG.bidDiscount * 10000))
+  const bidAmountStroops = budgetStroops - (budgetStroops * discountBps / 10000n)
   const messages = {
     data_collection: `I specialise in structured data extraction on Stellar. Clean JSON delivery within 30 minutes.`,
     content_gen:     `I generate high-quality Web3 content for the Stellar ecosystem. Delivery within 20 minutes.`,
@@ -130,10 +131,33 @@ async function submitBid(task) {
   }
   const message = messages[task.category] || 'Ready to complete this task efficiently.'
 
-  log('bid', `Bidding ${(Number(bidAmountWei)/1e7).toFixed(4)} XLM on "${task.title}"`)
+  log('bid', `Bidding ${(Number(bidAmountStroops)/1e7).toFixed(4)} XLM on "${task.title}"`)
+
+  if (!task.chain_task_id) {
+    log('bid', `⛔ Task has no chain_task_id — cannot submit Soroban bid`)
+    return
+  }
+
+  let txHash = null
+  let chainBidId = null
+  try {
+    const onChain = await sorobanSubmitBid(STELLAR.secretKey, task.chain_task_id, bidAmountStroops)
+    txHash = onChain.txHash
+    chainBidId = onChain.bidId.toString()
+    log('bid', `Soroban submit_bid tx ${txHash} bid id ${chainBidId}`)
+  } catch (err) {
+    log('bid', `❌ Soroban bid failed: ${err.message || err}`)
+    log('bid', `Full error: ${JSON.stringify(err)}`)
+    console.error('[submitBid] Full error:', err)
+    return
+  }
 
   const { status, body } = await apiPost('/bids', {
-    task_id: task.id, amount_wei: bidAmountWei.toString(), message,
+    task_id: task.id,
+    amount_stroops: bidAmountStroops.toString(),
+    message,
+    tx_hash: txHash,
+    chain_bid_id: chainBidId,
   })
 
   if (status === 201) {

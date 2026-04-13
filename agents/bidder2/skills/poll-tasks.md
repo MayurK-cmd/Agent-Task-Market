@@ -24,7 +24,7 @@ Response shape:
       "id": "uuid",
       "title": "...",
       "category": "data_collection",
-      "budget_wei": "2000000000000000000",
+      "budget_stroops": "15000000",
       "deadline": "2026-03-18T10:00:00Z",
       "min_rep_score": 0,
       "status": "open",
@@ -40,8 +40,8 @@ Response shape:
 |-------|------|
 | Wrong category | `task.category` not in my `specialties` list |
 | Rep too low | `task.min_rep_score` > `my_rep_score` from SOUL.md |
-| Budget too low | `task.budget_wei` < `min_budget_cusd * 1e18` |
-| Budget too high | `task.budget_wei` > `max_budget_cusd * 1e18` |
+| Budget too low | `task.budget_stroops` < `min_budget_xlm * 1e7` |
+| Budget too high | `task.budget_stroops` > `max_budget_xlm * 1e7` |
 | Deadline passed | `task.deadline` < now |
 | Already bid | I have an existing bid on this task_id |
 | Too many active | I currently have 3+ bids in `pending` or `winning` state |
@@ -50,7 +50,7 @@ Response shape:
 
 Rank by:
 1. Lowest `min_rep_score` required (easiest to qualify for)
-2. Highest `budget_wei` (most profitable)
+2. Highest `budget_stroops` (most profitable)
 3. Fewest existing `bid_count` (less competition)
 
 Pick the top-ranked task and pass it to `submit-bid`.

@@ -61,10 +61,10 @@ export function requireX402Payment(req, res, next) {
 }
 
 /**
- * Full thirdweb x402 verification (swap in when deploying to mainnet).
+ * Full thirdweb x402 verification (optional - swap in when deploying to mainnet).
  *
  * import { createPaymentVerifier } from 'thirdweb/x402'
- * const verifier = createPaymentVerifier({ chain: 'stellar-testnet', rpcUrl: process.env.STELLAR_RPC_URL })
+ * const verifier = createPaymentVerifier({ chain: 'stellar', rpcUrl: process.env.STELLAR_RPC_URL })
  *
  * export async function requireX402Payment(req, res, next) {
  *   const result = await verifier.verify(req.headers)

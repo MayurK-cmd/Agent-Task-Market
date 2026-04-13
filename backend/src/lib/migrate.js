@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS agents (
   specialty     VARCHAR(50),                    -- data_collection | code_review | content_gen | defi_ops
   rep_score     INTEGER      NOT NULL DEFAULT 0,
   tasks_done    INTEGER      NOT NULL DEFAULT 0,
-  total_earned  BIGINT       NOT NULL DEFAULT 0, -- in stroops
+  total_earned  BIGINT       NOT NULL DEFAULT 0, -- in stroops (1 XLM = 10^7)
   is_online     BOOLEAN      NOT NULL DEFAULT FALSE,
   last_seen     TIMESTAMPTZ,
   stellar_pub   VARCHAR(56),                    -- Stellar public key
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   title           VARCHAR(200) NOT NULL,
   description     TEXT,
   category        VARCHAR(50)  NOT NULL,         -- matches agent specialty values
-  budget_wei      BIGINT       NOT NULL,          -- XLM stroops (1 XLM = 10^7)
+  budget_stroops  BIGINT       NOT NULL,          -- XLM stroops (1 XLM = 10^7 stroops)
   deadline        TIMESTAMPTZ  NOT NULL,
   min_rep_score   INTEGER      NOT NULL DEFAULT 0,-- reputation gate
   poster_wallet   VARCHAR(56)  NOT NULL,
@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS bids (
   id              UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
   task_id         UUID         NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
   bidder_wallet   VARCHAR(56)  NOT NULL,
-  amount_wei      BIGINT       NOT NULL,           -- bid amount in stroops
+  amount_stroops  BIGINT       NOT NULL,           -- bid amount in stroops
   rep_score_snap  INTEGER      NOT NULL DEFAULT 0, -- rep at time of bid (snapshot)
   message         TEXT,                            -- optional pitch from bidder agent
   status          VARCHAR(20)  NOT NULL DEFAULT 'pending',
@@ -68,7 +68,7 @@ CREATE TABLE IF NOT EXISTS transactions (
   bid_id      UUID         REFERENCES bids(id),
   from_wallet VARCHAR(56),
   to_wallet   VARCHAR(56),
-  amount_wei  BIGINT,
+  amount_stroops  BIGINT,
   tx_hash     VARCHAR(66),
   meta        JSONB,                               -- any extra data
   created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
@@ -94,6 +94,31 @@ CREATE TRIGGER tasks_updated_at
   BEFORE UPDATE ON tasks
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+-- ── Soroban: on-chain bid id (from submit_bid) ───────────────────────────────
+ALTER TABLE bids ADD COLUMN IF NOT EXISTS chain_bid_id BIGINT;
+
+-- ── Widen chain task id for large u64 counters ────────────────────────────────
+ALTER TABLE tasks ALTER COLUMN chain_task_id TYPE BIGINT USING chain_task_id::BIGINT;
+
+-- ── Migrate from Celo (Wei) to Stellar (Stroops) ─────────────────────────────
+DO $$
+BEGIN
+  -- Rename budget_wei to budget_stroops if it exists
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tasks' AND column_name = 'budget_wei') THEN
+    ALTER TABLE tasks RENAME COLUMN budget_wei TO budget_stroops;
+  END IF;
+
+  -- Rename amount_wei to amount_stroops in bids if it exists
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'bids' AND column_name = 'amount_wei') THEN
+    ALTER TABLE bids RENAME COLUMN amount_wei TO amount_stroops;
+  END IF;
+
+  -- Rename amount_wei to amount_stroops in transactions if it exists
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'transactions' AND column_name = 'amount_wei') THEN
+    ALTER TABLE transactions RENAME COLUMN amount_wei TO amount_stroops;
+  END IF;
+END $$;
+
 -- ── Stellar address compatibility (existing DBs) ─────────────────────────────
 ALTER TABLE IF EXISTS tasks
   ALTER COLUMN poster_wallet TYPE VARCHAR(56);
@@ -108,7 +133,21 @@ ALTER TABLE IF EXISTS transactions
 
 async function migrate() {
   console.log('🗄️  Running migrations...')
-  const client = await pool.connect()
+  let client
+  try {
+    client = await pool.connect()
+  } catch (err) {
+    if (err?.code === 'ECONNREFUSED' || err?.code === 'ENOTFOUND') {
+      console.error('❌ Cannot reach PostgreSQL:', err.code)
+      console.error('   Start the DB container from the backend folder:')
+      console.error('   docker compose up -d db')
+      console.error('   Then check: docker ps  (agentmarket_db should be "Up", with 5432 published)')
+      console.error('   On your machine, DATABASE_URL should use localhost:5432 — not hostname "db" (that is only for the API container).')
+    } else {
+      console.error('❌ Connection failed:', err.message)
+    }
+    process.exit(1)
+  }
   try {
     await client.query(SCHEMA)
     console.log('✅  Schema up to date')

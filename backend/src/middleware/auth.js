@@ -1,4 +1,5 @@
 import { verifyWalletSignature, isSignatureTimely } from '../lib/wallet.js'
+import { canonicalStellarAddress } from '../lib/stellarAddr.js'
 
 /**
  * Middleware: requireWalletAuth
@@ -29,7 +30,11 @@ export function requireWalletAuth(req, res, next) {
     process.env.NODE_ENV !== 'production' &&
     signature === 'test-bypass'
   ) {
-    req.wallet = wallet.toLowerCase()
+    try {
+      req.wallet = canonicalStellarAddress(wallet)
+    } catch {
+      req.wallet = String(wallet).trim()
+    }
     return next()
   }
 
@@ -41,7 +46,11 @@ export function requireWalletAuth(req, res, next) {
     return res.status(401).json({ error: 'Invalid wallet signature' })
   }
 
-  req.wallet = wallet.toLowerCase()
+  try {
+    req.wallet = canonicalStellarAddress(wallet)
+  } catch {
+    return res.status(401).json({ error: 'Invalid Stellar public key' })
+  }
   next()
 }
 
@@ -57,7 +66,9 @@ export function optionalWalletAuth(req, res, next) {
 
   if (wallet && message && signature) {
     if (isSignatureTimely(message) && verifyWalletSignature(wallet, message, signature)) {
-      req.wallet = wallet.toLowerCase()
+      try {
+        req.wallet = canonicalStellarAddress(wallet)
+      } catch { /* ignore invalid optional auth */ }
     }
   }
   next()

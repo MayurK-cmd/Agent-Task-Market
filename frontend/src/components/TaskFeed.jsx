@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useTasks, useBids } from '../hooks/useMarketPlace.js'
 import { useWallet } from '../hooks/useWallet.jsx'
-import { CATEGORY_COLORS, STATUS_COLORS, EXPLORER, API_BASE, shortAddr, ago, timeLeft, cusd } from '../lib/config.js'
+import { CATEGORY_COLORS, STATUS_COLORS, EXPLORER, API_BASE, shortAddr, ago, timeLeft, lumens, STELLAR_RPC_URL, SOROBAN_CONTRACT_ID } from '../lib/config.js'
+import { acceptBidWithWallet } from '../lib/sorobanClient.js'
 import PostTask from './PostTask.jsx'
 
 const FILTERS = ['all','open','bidding','in_progress','completed','disputed']
@@ -170,7 +171,7 @@ function DeliverableView({ data }) {
 // ── Bid comparison card ───────────────────────────────────────────────────────
 function BidCard({ bid, rank, isWinner, canAccept, loading, onAccept }) {
   const winReason = isWinner ? [
-    bid.amount_wei && '↓ lowest bid',
+    bid.amount_stroops && '↓ lowest bid',
     bid.rep_score_snap >= 80 && '★ high reputation',
     bid.message && '✓ message provided',
   ].filter(Boolean).join(' · ') : null
@@ -205,7 +206,7 @@ function BidCard({ bid, rank, isWinner, canAccept, loading, onAccept }) {
       <div style={{ display: 'flex', gap: 20, marginBottom: bid.message ? 10 : 0 }}>
         <div>
           <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)', marginBottom: 2 }}>bid amount</div>
-          <div style={{ fontFamily: 'var(--mono)', fontSize: 16, color: 'var(--accent)', fontWeight: 700 }}>{cusd(bid.amount_wei)} XLM</div>
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 16, color: 'var(--accent)', fontWeight: 700 }}>{lumens(bid.amount_stroops)} XLM</div>
         </div>
         <div>
           <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)', marginBottom: 2 }}>rep score</div>
@@ -246,7 +247,7 @@ function BidCard({ bid, rank, isWinner, canAccept, loading, onAccept }) {
       {canAccept && bid.status === 'pending' && (
         <button onClick={() => onAccept(bid.id)} disabled={loading}
           style={{ ...btn('var(--accent)', loading), width: '100%', padding: '8px', textAlign: 'center' }}>
-          {loading ? 'accepting...' : `accept this bid — ${cusd(bid.amount_wei)} XLM`}
+          {loading ? 'accepting...' : `accept this bid — ${lumens(bid.amount_stroops)} XLM`}
         </button>
       )}
     </div>
@@ -254,7 +255,7 @@ function BidCard({ bid, rank, isWinner, canAccept, loading, onAccept }) {
 }
 
 // ── Task row with expanded panel ──────────────────────────────────────────────
-function TaskRow({ task, index, wallet, authHeaders, onRefetch }) {
+function TaskRow({ task, index, wallet, authHeaders, signSorobanTx, onRefetch }) {
   const [expanded, setExpanded] = useState(false)
   const [loading,  setLoading]  = useState(false)
   const [msg,      setMsg]      = useState(null)
@@ -276,7 +277,7 @@ function TaskRow({ task, index, wallet, authHeaders, onRefetch }) {
   const sortedBids = [...bids].sort((a, b) => {
     if (a.status === 'winning') return -1
     if (b.status === 'winning') return 1
-    return Number(BigInt(a.amount_wei || 0)) - Number(BigInt(b.amount_wei || 0))
+    return Number(BigInt(a.amount_stroops || 0)) - Number(BigInt(b.amount_stroops || 0))
   })
 
   async function acceptBid(bidId) {
@@ -285,9 +286,22 @@ function TaskRow({ task, index, wallet, authHeaders, onRefetch }) {
 
     setLoading(true); setMsg(null)
     try {
-      setMsg({ ok: true, text: 'Accepting bid on Stellar backend...' })
+      setMsg({ ok: true, text: 'Sign accept_bid in your wallet...' })
+      const { txHash } = await acceptBidWithWallet({
+        rpcUrl: STELLAR_RPC_URL,
+        contractId: SOROBAN_CONTRACT_ID,
+        publicKey: wallet.publicKey,
+        signTxXdr: signSorobanTx,
+        chainTaskId: task.chain_task_id,
+        chainBidId: bid.chain_bid_id,
+      })
+      setMsg({ ok: true, text: 'Confirming on backend...' })
       const headers = await authHeaders()
-      const res  = await fetch(`${API_BASE}/bids/${bidId}/accept`, { method: 'POST', headers })
+      const res  = await fetch(`${API_BASE}/bids/${bidId}/accept`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ tx_hash: txHash }),
+      })
       const body = await res.json()
       if (!res.ok) throw new Error(body.error)
 
@@ -347,7 +361,7 @@ function TaskRow({ task, index, wallet, authHeaders, onRefetch }) {
           </div>
         </div>
         <div><span style={pill(task.category.replace('_',' '), CATEGORY_COLORS[task.category] || '#888')}>{task.category.replace('_',' ')}</span></div>
-        <span style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--accent)', fontWeight: 700 }}>{cusd(task.budget_wei)} XLM</span>
+        <span style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--accent)', fontWeight: 700 }}>{lumens(task.budget_stroops)} XLM</span>
         <div><span style={pill(task.status, STATUS_COLORS[task.status] || '#888')}>{task.status.replace('_',' ')}</span></div>
         <span style={{ fontFamily: 'var(--mono)', fontSize: 12, color: task.bid_count > 0 ? 'var(--text)' : 'var(--text3)' }}>
           {task.bid_count > 0 ? task.bid_count : '—'}
@@ -421,9 +435,9 @@ function TaskRow({ task, index, wallet, authHeaders, onRefetch }) {
                   {/* Payment breakdown */}
                   <div style={{ display: 'flex', gap: 16, marginBottom: 12 }}>
                     {[
-                      { label: 'budget', val: `${cusd(task.budget_wei)} XLM`, color: 'var(--text)' },
-                      { label: 'agent gets (80%)', val: `${(parseFloat(cusd(task.budget_wei)) * 0.8).toFixed(4)} XLM`, color: 'var(--accent)' },
-                      { label: 'you get (20%)', val: `${(parseFloat(cusd(task.budget_wei)) * 0.2).toFixed(4)} XLM`, color: 'var(--amber)' },
+                      { label: 'budget', val: `${lumens(task.budget_stroops)} XLM`, color: 'var(--text)' },
+                      { label: 'agent gets (80%)', val: `${(parseFloat(lumens(task.budget_stroops)) * 0.8).toFixed(4)} XLM`, color: 'var(--accent)' },
+                      { label: 'you get (20%)', val: `${(parseFloat(lumens(task.budget_stroops)) * 0.2).toFixed(4)} XLM`, color: 'var(--amber)' },
                     ].map(s => (
                       <div key={s.label}>
                         <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)', marginBottom: 2 }}>{s.label}</div>
@@ -488,7 +502,7 @@ export default function TaskFeed() {
   const [filter,   setFilter]  = useState('all')
   const [showPost, setShowPost] = useState(false)
   const { tasks, loading, refetch } = useTasks(filter)
-  const { wallet, authHeaders }     = useWallet()
+  const { wallet, authHeaders, signSorobanTx } = useWallet()
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -542,7 +556,7 @@ export default function TaskFeed() {
           </div>
         )}
         {tasks.map((t, i) => (
-          <TaskRow key={t.id} task={t} index={i} wallet={wallet} authHeaders={authHeaders} onRefetch={refetch} />
+          <TaskRow key={t.id} task={t} index={i} wallet={wallet} authHeaders={authHeaders} signSorobanTx={signSorobanTx} onRefetch={refetch} />
         ))}
       </div>
 

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAgents } from '../hooks/useMarketPlace.js'
-import { CATEGORY_COLORS, EXPLORER, shortAddr, cusd } from '../lib/config.js'
+import { CATEGORY_COLORS, EXPLORER, shortAddr, lumens } from '../lib/config.js'
 
 function Step({ n, title, children }) {
   return (
@@ -211,7 +211,7 @@ BID_DISCOUNT_PERCENT=15`}</Code>
                   {(agent.specialty || 'unknown').replace('_', ' ')}
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--accent)', fontWeight: 700 }}>{cusd(agent.total_earned)}</div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--accent)', fontWeight: 700 }}>{lumens(agent.total_earned)} XLM</div>
                   <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)' }}>XLM earned</div>
                 </div>
                 <a href={`${EXPLORER}/address/${agent.wallet}`} target="_blank" rel="noreferrer"

@@ -53,7 +53,7 @@ router.get('/:wallet', async (req, res) => {
     `, [wallet])
 
     const { rows: recentTasks } = await query(`
-      SELECT id, title, category, status, budget_wei, created_at
+      SELECT id, title, category, status, budget_stroops, created_at
       FROM tasks WHERE poster_wallet = $1
       ORDER BY created_at DESC
       LIMIT 10

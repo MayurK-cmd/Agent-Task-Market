@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useWallet }      from '../hooks/useWallet.jsx'
-import { postTaskOnChain } from '../hooks/useMarketPlace.js'
+import { postTaskOnChain, preparePostTaskOnChain } from '../hooks/useMarketPlace.js'
 import { CATEGORIES, EXPLORER }         from '../lib/config.js'
 
 const overlay = {
@@ -25,18 +25,35 @@ const btn = (variant = 'primary') => ({
   letterSpacing:'0.04em',
 })
 
-const STEPS = { idle: 'idle', signing: 'signing', confirming: 'confirming', done: 'done', error: 'error' }
+const STEPS = {
+  idle: 'idle',
+  signing: 'signing',
+  preparing: 'preparing',
+  sign_ready: 'sign_ready',
+  confirming: 'confirming',
+  done: 'done',
+  error: 'error',
+}
+
+function walletSigningLabel(wallet) {
+  if (!wallet || wallet.isManual) return 'your wallet'
+  if (wallet.isRabet) return 'Rabet'
+  if (wallet.isFreighter) return 'Freighter'
+  return 'your wallet'
+}
 
 export default function PostTask({ onClose, onSuccess }) {
-  const { wallet, authHeaders } = useWallet()
+  const { wallet, authHeaders, signSorobanTx } = useWallet()
+  const walletLabel = walletSigningLabel(wallet)
 
   const [form, setForm] = useState({
     title: '', description: '', category: 'data_collection',
-    budgetEth: '', deadlineDate: '', minRepScore: 0,
+    budgetXlm: '', deadlineDate: '', minRepScore: 0,
   })
-  const [step,    setStep]    = useState(STEPS.idle)
-  const [txHash,  setTxHash]  = useState(null)
-  const [errMsg,  setErrMsg]  = useState(null)
+  const [step,         setStep]         = useState(STEPS.idle)
+  const [preparedXdr,  setPreparedXdr]  = useState(null)
+  const [txHash,       setTxHash]       = useState(null)
+  const [errMsg,       setErrMsg]       = useState(null)
 
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }))
 
@@ -45,27 +62,81 @@ export default function PostTask({ onClose, onSuccess }) {
     return d.toISOString().slice(0,16)
   }
 
-  const submit = async () => {
-    if (!wallet)          return setErrMsg('Connect your wallet first')
-    if (!form.title)      return setErrMsg('Title is required')
-    if (!form.budgetEth)  return setErrMsg('Budget is required')
-    if (!form.deadlineDate) return setErrMsg('Deadline is required')
-    if (parseFloat(form.budgetEth) <= 0) return setErrMsg('Budget must be > 0')
+  const validate = () => {
+    if (!wallet) return 'Connect your wallet first'
+    if (!form.title) return 'Title is required'
+    if (!form.budgetXlm) return 'Budget is required'
+    if (!form.deadlineDate) return 'Deadline is required'
+    if (parseFloat(form.budgetXlm) <= 0) return 'Budget must be > 0'
+    return null
+  }
+
+  const formLocked =
+    step === STEPS.signing ||
+    step === STEPS.preparing ||
+    step === STEPS.sign_ready ||
+    step === STEPS.confirming
+
+  /** API auth + Soroban simulate (no contract signature yet). */
+  const submitPrepare = async () => {
+    const v = validate()
+    if (v) return setErrMsg(v)
 
     setErrMsg(null)
+    setPreparedXdr(null)
     setStep(STEPS.signing)
 
     try {
-      // Step 1: Wallet signature for API auth
-      await authHeaders()
-      setStep(STEPS.confirming)
+      console.log('[PostTask] Calling authHeaders...')
+      const headers = await authHeaders()
+      console.log('[PostTask] authHeaders returned:', headers)
+      setStep(STEPS.preparing)
+      console.log('[PostTask] Calling preparePostTaskOnChain...')
+      const result = await preparePostTaskOnChain({
+        formData: form,
+        publicKey: wallet.publicKey,
+      })
+      console.log('[PostTask] preparePostTaskOnChain returned:', result)
+      const xdr = result?.preparedXdr
+      console.log('[PostTask] extracted xdr:', xdr)
+      setPreparedXdr(xdr)
+      setStep(STEPS.sign_ready)
+    } catch (err) {
+      console.error('[PostTask] Error:', err)
+      setPreparedXdr(null)
+      setErrMsg(err.message || 'Transaction failed')
+      setStep(STEPS.error)
+    }
+  }
 
-      // Step 2: Backend creates task + Soroban call
-      const result = await postTaskOnChain({ authHeaders, formData: form })
+  /** User-clicked: opens the connected extension (e.g. Rabet) for post_task, then Soroban + API. */
+  const submitSignAndFinish = async () => {
+    const v = validate()
+    if (v) return setErrMsg(v)
+    if (!preparedXdr) {
+      setErrMsg('Transaction is not prepared — use Post task first')
+      return setStep(STEPS.error)
+    }
+
+    setErrMsg(null)
+    setStep(STEPS.confirming)
+
+    try {
+      console.log('[PostTask] Calling postTaskOnChain with preparedXdr:', preparedXdr.substring(0, 50) + '...')
+      const result = await postTaskOnChain({
+        authHeaders,
+        formData: form,
+        publicKey: wallet.publicKey,
+        signTxXdr: signSorobanTx,
+        preparedXdr,
+      })
+      console.log('[PostTask] postTaskOnChain result:', result)
       setTxHash(result.txHash)
       setStep(STEPS.done)
       setTimeout(() => { onSuccess?.(); onClose() }, 2000)
     } catch (err) {
+      console.error('[PostTask] postTaskOnChain error:', err)
+      setPreparedXdr(null)
       setErrMsg(err.message || 'Transaction failed')
       setStep(STEPS.error)
     }
@@ -101,12 +172,13 @@ export default function PostTask({ onClose, onSuccess }) {
             {/* Form fields */}
             <div style={field}>
               <label style={label}>Task title *</label>
-              <input value={form.title} onChange={set('title')} placeholder="e.g. Scrape top 10 Stellar DeFi protocols by TVL" />
+              <input value={form.title} onChange={set('title')} disabled={formLocked}
+                placeholder="e.g. Scrape top 10 Stellar DeFi protocols by TVL" />
             </div>
 
             <div style={field}>
               <label style={label}>Description</label>
-              <textarea value={form.description} onChange={set('description')}
+              <textarea value={form.description} onChange={set('description')} disabled={formLocked}
                 placeholder="Detailed requirements, output format, sources to use..."
                 style={{ minHeight: 72, resize: 'vertical' }} />
             </div>
@@ -114,44 +186,44 @@ export default function PostTask({ onClose, onSuccess }) {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
               <div>
                 <label style={label}>Category *</label>
-                <select value={form.category} onChange={set('category')}>
+                <select value={form.category} onChange={set('category')} disabled={formLocked}>
                   {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                 </select>
               </div>
               <div>
                 <label style={label}>Budget (XLM) *</label>
-                <input type="number" min="0.01" step="0.01" value={form.budgetEth}
-                  onChange={set('budgetEth')} placeholder="e.g. 2.0" />
+                <input type="number" min="0.01" step="0.01" value={form.budgetXlm} disabled={formLocked}
+                  onChange={set('budgetXlm')} placeholder="e.g. 2.0" />
               </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
               <div>
                 <label style={label}>Deadline *</label>
-                <input type="datetime-local" value={form.deadlineDate}
+                <input type="datetime-local" value={form.deadlineDate} disabled={formLocked}
                   onChange={set('deadlineDate')} min={minDate()} />
               </div>
               <div>
                 <label style={label}>Min rep score (0 = open to all)</label>
-                <input type="number" min="0" max="100" value={form.minRepScore}
+                <input type="number" min="0" max="100" value={form.minRepScore} disabled={formLocked}
                   onChange={set('minRepScore')} placeholder="0" />
               </div>
             </div>
 
             {/* Budget breakdown */}
-            {form.budgetEth && parseFloat(form.budgetEth) > 0 && (
+            {form.budgetXlm && parseFloat(form.budgetXlm) > 0 && (
               <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 'var(--r)', padding: '10px 14px', marginBottom: 16, fontFamily: 'var(--mono)', fontSize: 11 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                   <span style={{ color: 'var(--text3)' }}>Escrow (total)</span>
-                  <span style={{ color: 'var(--text)' }}>{parseFloat(form.budgetEth).toFixed(4)} XLM</span>
+                  <span style={{ color: 'var(--text)' }}>{parseFloat(form.budgetXlm).toFixed(4)} XLM</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                   <span style={{ color: 'var(--text3)' }}>Bidder receives (80%)</span>
-                  <span style={{ color: 'var(--accent)' }}>{(parseFloat(form.budgetEth) * 0.8).toFixed(4)} XLM</span>
+                  <span style={{ color: 'var(--accent)' }}>{(parseFloat(form.budgetXlm) * 0.8).toFixed(4)} XLM</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: 'var(--text3)' }}>Platform fee (20%)</span>
-                  <span style={{ color: 'var(--amber)' }}>{(parseFloat(form.budgetEth) * 0.2).toFixed(4)} XLM</span>
+                  <span style={{ color: 'var(--amber)' }}>{(parseFloat(form.budgetXlm) * 0.2).toFixed(4)} XLM</span>
                 </div>
               </div>
             )}
@@ -165,21 +237,78 @@ export default function PostTask({ onClose, onSuccess }) {
 
             {/* Step indicator */}
             {step !== STEPS.idle && step !== STEPS.error && (
-              <div style={{ marginBottom: 16, fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--amber)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ width: 10, height: 10, border: '2px solid var(--amber)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                {step === STEPS.signing    && 'Sign the API auth message in your Stellar wallet...'}
-                {step === STEPS.confirming && 'Submitting task to backend + Soroban...'}
+              <div style={{
+                marginBottom: 16,
+                fontFamily: 'var(--mono)',
+                fontSize: 11,
+                color: step === STEPS.sign_ready ? 'var(--text2)' : 'var(--amber)',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 8,
+              }}>
+                {step !== STEPS.sign_ready && (
+                  <div style={{
+                    flexShrink: 0,
+                    width: 10,
+                    height: 10,
+                    marginTop: 2,
+                    border: '2px solid var(--amber)',
+                    borderTopColor: 'transparent',
+                    borderRadius: '50%',
+                    animation: 'spin 0.8s linear infinite',
+                  }} />
+                )}
+                <span style={{ lineHeight: 1.45 }}>
+                  {step === STEPS.signing && 'Sign the API auth message in your Stellar wallet...'}
+                  {step === STEPS.preparing && 'Simulating post_task on Soroban (RPC) — wallet opens on the next step...'}
+                  {step === STEPS.sign_ready &&
+                    `Transaction ready. Click Sign with wallet below — ${walletLabel} should open on that click (after RPC simulation + API auth, a second tap helps the extension prompt).`}
+                  {step === STEPS.confirming &&
+                    `Approve post_task in ${walletLabel}, then submitting to Soroban and the API...`}
+                </span>
               </div>
             )}
 
             {/* Actions */}
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button onClick={onClose} style={btn('secondary')}>cancel</button>
-              <button onClick={submit}
-                disabled={['signing','confirming'].includes(step)}
-                style={{ ...btn('primary'), opacity: ['signing','confirming'].includes(step) ? 0.6 : 1 }}>
-                {['signing','confirming'].includes(step) ? 'posting...' : 'post task →'}
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  if (step === STEPS.sign_ready) {
+                    setPreparedXdr(null)
+                    setStep(STEPS.idle)
+                    setErrMsg(null)
+                  } else {
+                    onClose()
+                  }
+                }}
+                style={btn('secondary')}
+                disabled={step === STEPS.signing || step === STEPS.preparing || step === STEPS.confirming}
+              >
+                {step === STEPS.sign_ready ? 'back' : 'cancel'}
               </button>
+              {preparedXdr && (step === STEPS.sign_ready || step === STEPS.confirming) ? (
+                <button
+                  type="button"
+                  onClick={submitSignAndFinish}
+                  disabled={step === STEPS.confirming}
+                  style={{ ...btn('primary'), opacity: step === STEPS.confirming ? 0.6 : 1 }}
+                >
+                  {step === STEPS.confirming ? 'submitting...' : 'sign with wallet →'}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={submitPrepare}
+                  disabled={['signing', 'preparing', 'confirming'].includes(step)}
+                  style={{
+                    ...btn('primary'),
+                    opacity: ['signing', 'preparing', 'confirming'].includes(step) ? 0.6 : 1,
+                  }}
+                >
+                  {['signing', 'preparing'].includes(step) ? 'preparing...' : 'post task →'}
+                </button>
+              )}
             </div>
           </>
         )}

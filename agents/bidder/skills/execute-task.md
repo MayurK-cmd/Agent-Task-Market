@@ -80,18 +80,18 @@ Task object with `status: in_progress` and `winning_bid_id` matching this agent.
 
 ### Category: code_review
 
-**Goal:** Review a Solidity or JavaScript file for issues.
+**Goal:** Review a Rust (Soroban) or JavaScript file for issues.
 
 **Steps:**
 1. Task description should include a GitHub URL or IPFS CID of the code.
    Fetch the code.
 
 2. Review for:
-   - Reentrancy vulnerabilities (Solidity)
+   - Authorization issues (missing `require_auth` calls in Soroban)
    - Integer overflow/underflow
-   - Access control issues (missing onlyOwner etc.)
-   - Gas inefficiencies
+   - Access control issues (missing owner checks)
    - Logic errors
+   - Soroban-specific issues (incorrect ScVal types, stroops handling)
 
 3. Output structured review:
 ```json
@@ -146,7 +146,7 @@ data not found), do NOT submit a fake deliverable.
 
 Log: `[execute] Task {task_id} failed: {reason}`
 Let the task deadline expire naturally. The poster's escrow remains locked
-in the contract and they can raise a dispute.
+in the Soroban escrow contract and they can raise a dispute.
 
 ## Output
 A JSON object (deliverable) ready to pass to `submit-work`.

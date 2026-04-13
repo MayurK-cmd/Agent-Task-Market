@@ -1,5 +1,8 @@
 import { Router } from 'express'
+import { Keypair } from '@stellar/stellar-sdk'
 import { query, queryOne } from '../lib/db.js'
+import { acceptBid as acceptBidOnChain, verifyAcceptBidTx } from '../lib/soroban.js'
+import { stellarAddressesEqual } from '../lib/stellarAddr.js'
 import { requireWalletAuth } from '../middleware/auth.js'
 
 const router = Router()
@@ -33,7 +36,7 @@ router.get('/:taskId', async (req, res) => {
       FROM bids b
       LEFT JOIN agents a ON a.wallet = b.bidder_wallet
       WHERE b.task_id = $1
-      ORDER BY b.amount_wei ASC
+      ORDER BY b.amount_stroops ASC
     `, [req.params.taskId])
     res.json({ bids: rows })
   } catch (err) {
@@ -46,15 +49,22 @@ router.get('/:taskId', async (req, res) => {
 // Protected. Any agent can bid on an open task if their rep qualifies.
 router.post('/', requireWalletAuth, async (req, res) => {
   try {
-    const { task_id, amount_wei, message, tx_hash } = req.body
+    const { task_id, amount_stroops, message, tx_hash, chain_bid_id } = req.body
 
-    if (!task_id || !amount_wei) {
-      return res.status(400).json({ error: 'Required: task_id, amount_wei' })
+    if (!task_id || !amount_stroops) {
+      return res.status(400).json({ error: 'Required: task_id, amount_stroops' })
+    }
+    if (chain_bid_id === undefined || chain_bid_id === null || chain_bid_id === '') {
+      return res.status(400).json({ error: 'Required: chain_bid_id (on-chain bid id from submit_bid)' })
     }
 
     // Fetch task
     const task = await queryOne('SELECT * FROM tasks WHERE id = $1', [task_id])
     if (!task) return res.status(404).json({ error: 'Task not found' })
+
+    if (!task.chain_task_id) {
+      return res.status(400).json({ error: 'Task has no on-chain id (chain_task_id); post the task on Soroban first' })
+    }
 
     if (!['open', 'bidding'].includes(task.status)) {
       return res.status(400).json({ error: `Task is not accepting bids (status: ${task.status})` })
@@ -70,7 +80,7 @@ router.post('/', requireWalletAuth, async (req, res) => {
     const repScore = task.min_rep_score || 0
 
     // Check bid amount doesn't exceed budget
-    if (BigInt(amount_wei) > BigInt(task.budget_wei)) {
+    if (BigInt(amount_stroops) > BigInt(task.budget_stroops)) {
       return res.status(400).json({ error: 'Bid amount exceeds task budget' })
     }
 
@@ -93,10 +103,10 @@ router.post('/', requireWalletAuth, async (req, res) => {
 
     // Create bid
     const bid = await queryOne(`
-      INSERT INTO bids (task_id, bidder_wallet, amount_wei, rep_score_snap, message, tx_hash)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      INSERT INTO bids (task_id, bidder_wallet, amount_stroops, rep_score_snap, message, tx_hash, chain_bid_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *
-    `, [task_id, req.wallet, amount_wei, repScore, message ?? null, tx_hash ?? null])
+    `, [task_id, req.wallet, amount_stroops, repScore, message ?? null, tx_hash ?? null, chain_bid_id])
 
     // Transition task to 'bidding' if still 'open'
     if (task.status === 'open') {
@@ -105,9 +115,9 @@ router.post('/', requireWalletAuth, async (req, res) => {
 
     // Log transaction
     await query(`
-      INSERT INTO transactions (type, task_id, bid_id, from_wallet, amount_wei, tx_hash)
+      INSERT INTO transactions (type, task_id, bid_id, from_wallet, amount_stroops, tx_hash)
       VALUES ('bid_submitted', $1, $2, $3, $4, $5)
-    `, [task_id, bid.id, req.wallet, amount_wei, tx_hash ?? null])
+    `, [task_id, bid.id, req.wallet, amount_stroops, tx_hash ?? null])
 
     res.status(201).json({ bid })
   } catch (err) {
@@ -120,6 +130,7 @@ router.post('/', requireWalletAuth, async (req, res) => {
 // Protected. Poster accepts a specific bid → task moves to in_progress.
 router.post('/:id/accept', requireWalletAuth, async (req, res) => {
   try {
+    const { tx_hash: acceptTxHash } = req.body || {}
     const bid = await queryOne('SELECT * FROM bids WHERE id = $1', [req.params.id])
     if (!bid) return res.status(404).json({ error: 'Bid not found' })
 
@@ -130,6 +141,30 @@ router.post('/:id/accept', requireWalletAuth, async (req, res) => {
     }
     if (task.status !== 'bidding') {
       return res.status(400).json({ error: `Cannot accept bid on task with status: ${task.status}` })
+    }
+
+    if (!task.chain_task_id) {
+      return res.status(400).json({ error: 'Task has no chain_task_id' })
+    }
+    if (bid.chain_bid_id == null) {
+      return res.status(400).json({ error: 'Bid has no chain_bid_id (on-chain submit_bid id)' })
+    }
+
+    const platformPub = Keypair.fromSecret(process.env.STELLAR_SECRET_KEY).publicKey()
+
+    if (acceptTxHash) {
+      await verifyAcceptBidTx(acceptTxHash, task.chain_task_id, bid.chain_bid_id, req.wallet)
+    } else if (stellarAddressesEqual(task.poster_wallet, platformPub)) {
+      await acceptBidOnChain(
+        process.env.STELLAR_SECRET_KEY,
+        task.chain_task_id,
+        bid.chain_bid_id
+      )
+    } else {
+      return res.status(400).json({
+        error:
+          'You must sign accept_bid with your Stellar wallet, submit the Soroban transaction, then POST again with JSON body: { "tx_hash": "<hash>" }',
+      })
     }
 
     // Mark this bid as winning
