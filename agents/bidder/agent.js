@@ -171,27 +171,71 @@ async function apiPost(path, data) {
 }
 
 
-// ── Gemini 2.5 Flash ──────────────────────────────────────────────────────────
-async function callGemini(systemPrompt, userPrompt) {
+// ── Gemini with retry and fallback ────────────────────────────────────────────
+const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite']
+const MAX_RETRIES = 5
+const MAX_FAILURES_BEFORE_FALLBACK = 2
+
+let currentModelIndex = 0
+let consecutiveFailures = 0
+
+async function callGemini(systemPrompt, userPrompt, attempt = 1) {
   if (!process.env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not set in .env')
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      system_instruction: { parts: [{ text: systemPrompt }] },
-      contents:           [{ parts: [{ text: userPrompt }] }],
-      generationConfig:   { temperature: 0.7, maxOutputTokens: 2000 },
-    }),
-  })
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`Gemini API error ${res.status}: ${err}`)
+
+  const model = GEMINI_MODELS[currentModelIndex]
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`
+
+  log('gemini', `Calling ${model} (attempt ${attempt}/${MAX_RETRIES})`)
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: systemPrompt }] },
+        contents:           [{ parts: [{ text: userPrompt }] }],
+        generationConfig:   { temperature: 0.7, maxOutputTokens: 2000 },
+      }),
+    })
+
+    if (!res.ok) {
+      const err = await res.text()
+      throw new Error(`Gemini API error ${res.status}: ${err}`)
+    }
+
+    const data = await res.json()
+    if (!data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
+      throw new Error('Gemini returned empty response')
+    }
+
+    // Strip markdown fences if Gemini wraps response in ```json ... ```
+    const raw = data.candidates[0].content.parts[0].text
+    consecutiveFailures = 0 // Reset on success
+    return raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim()
+
+  } catch (err) {
+    log('gemini', `Error: ${err.message}`)
+
+    // Increment failure counter
+    consecutiveFailures++
+
+    // Fallback to lite model after MAX_FAILURES_BEFORE_FALLBACK failures
+    if (consecutiveFailures >= MAX_FAILURES_BEFORE_FALLBACK && currentModelIndex < GEMINI_MODELS.length - 1) {
+      log('gemini', `⚠️  ${consecutiveFailures} consecutive failures, falling back to ${GEMINI_MODELS[currentModelIndex + 1]}`)
+      currentModelIndex++
+      consecutiveFailures = 0
+    }
+
+    // Retry if under max attempts
+    if (attempt < MAX_RETRIES) {
+      const delayMs = Math.min(1000 * Math.pow(2, attempt - 1), 10000) // Exponential backoff: 1s, 2s, 4s, 8s, 10s
+      log('gemini', `Retrying in ${delayMs/1000}s...`)
+      await new Promise(r => setTimeout(r, delayMs))
+      return callGemini(systemPrompt, userPrompt, attempt + 1)
+    }
+
+    throw new Error(`Gemini failed after ${MAX_RETRIES} attempts: ${err.message}`)
   }
-  const data = await res.json()
-  // Strip markdown fences if Gemini wraps response in ```json ... ```
-  const raw = data.candidates[0].content.parts[0].text
-  return raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim()
 }
 
 // ── Poll tasks ────────────────────────────────────────────────────────────────
