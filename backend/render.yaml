@@ -1,9 +1,10 @@
 services:
   # PostgreSQL database
-  - type: postgres
+  - type: database
     name: agentmarket-db
+    databaseName: agentmarket
     plan: free
-    ipAllowList: []
+    disk: 1GB
 
   # Backend API
   - type: web
